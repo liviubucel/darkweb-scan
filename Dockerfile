@@ -22,4 +22,4 @@ RUN chmod +x /app/entrypoint.sh
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 
-CMD []
+CMD ["ui", "--ui-port", "8501", "--ui-host", "0.0.0.0"]
