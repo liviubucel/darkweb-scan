@@ -1,9 +1,9 @@
 <div align="center">
    <img src=".github/assets/logo.png" alt="Logo" width="300">
-   <br><a href="https://github.com/apurvsinghgautam/robin/actions/workflows/binary.yml"><img alt="Build" src="https://github.com/apurvsinghgautam/robin/actions/workflows/binary.yml/badge.svg"></a> <a href="https://github.com/apurvsinghgautam/robin/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/apurvsinghgautam/robin"></a> <a href="https://hub.docker.com/r/apurvsg/robin"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/apurvsg/robin"></a>
-   <h1>Robin: AI-Powered Dark Web OSINT Tool</h1>
+   <br><a href="https://github.com/liviubucel/zebrabyte-darkweb-scan/actions/workflows/binary.yml"><img alt="Build" src="https://github.com/liviubucel/zebrabyte-darkweb-scan/actions/workflows/binary.yml/badge.svg"></a> <a href="https://github.com/liviubucel/zebrabyte-darkweb-scan/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/liviubucel/zebrabyte-darkweb-scan"></a> <a href="https://hub.docker.com/r/liviubucel/zebrabyte"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/liviubucel/zebrabyte"></a>
+   <h1>ZebraByte: AI-Powered Dark Web OSINT Tool</h1>
 
-   <p>Robin is an AI-powered tool for conducting dark web OSINT investigations. It leverages LLMs to refine queries, filter search results from dark web search engines, and provide an investigation summary.</p>
+   <p>ZebraByte is an AI-powered tool for conducting dark web OSINT investigations. It leverages LLMs to refine queries, filter search results from dark web search engines, and provide an investigation summary.</p>
    <a href="#installation">Installation</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#contributing">Contributing</a> &bull; <a href="#acknowledgements">Acknowledgements</a><br><br>
 </div>
 
@@ -29,7 +29,7 @@
 >
 > Use responsibly and at your own risk. Ensure you comply with all relevant laws and institutional policies before conducting OSINT investigations.
 >
-> Additionally, Robin leverages third-party APIs (including LLMs). Be cautious when sending potentially sensitive queries, and review the terms of service for any API or model provider you use.
+> Additionally, ZebraByte leverages third-party APIs (including LLMs). Be cautious when sending potentially sensitive queries, and review the terms of service for any API or model provider you use.
 
 ## Installation
 > [!NOTE]
@@ -42,9 +42,9 @@
 
 ### Docker (Web UI Mode) [Recommended]
 
-- Pull the latest Robin docker image
+- Pull the latest ZebraByte docker image
 ```bash
-docker pull apurvsg/robin:latest
+docker pull liviubucel/zebrabyte:latest
 ```
 
 - Run the docker image as:
@@ -53,20 +53,20 @@ docker run --rm \
    -v "$(pwd)/.env:/app/.env" \
    --add-host=host.docker.internal:host-gateway \
    -p 8501:8501 \
-   apurvsg/robin:latest ui --ui-port 8501 --ui-host 0.0.0.0
+   liviubucel/zebrabyte:latest ui --ui-port 8501 --ui-host 0.0.0.0
 ```
 
 ### Release Binary (CLI Mode)
 
-- Download the appropriate binary for your system from the [latest release](https://github.com/apurvsinghgautam/robin/releases/latest)
+- Download the appropriate binary for your system from the [latest release](https://github.com/liviubucel/zebrabyte-darkweb-scan/releases/latest)
 - Unzip the file, make it executable 
 ```bash
-chmod +x robin
+chmod +x zebrabyte
 ```
 
 - Run the binary as:
 ```bash
-robin cli --model gpt-4.1 --query "ransomware payments"
+zebrabyte cli --model gpt-4.1 --query "ransomware payments"
 ```
 
 ### Using Python (Development Version)
@@ -83,7 +83,7 @@ python main.py -m gpt-4.1 -q "ransomware payments" -t 12
 ## Usage
 
 ```bash
-Robin: AI-Powered Dark Web OSINT Tool
+ZebraByte: AI-Powered Dark Web OSINT Tool
 
 options:
   -h, --help            show this help message and exit
@@ -98,10 +98,10 @@ options:
                         current date and time is used.
 
 Example commands:
- - robin -m gpt4o -q "ransomware payments" -t 12
- - robin --model claude-3-5-sonnet-latest --query "sensitive credentials exposure" --threads 8 --output filename
- - robin -m llama3.1 -q "zero days"
- - robin -m gemini-2.5-flash -q "zero days"
+ - zebrabyte -m gpt4o -q "ransomware payments" -t 12
+ - zebrabyte --model claude-3-5-sonnet-latest --query "sensitive credentials exposure" --threads 8 --output filename
+ - zebrabyte -m llama3.1 -q "zero days"
+ - zebrabyte -m gemini-2.5-flash -q "zero days"
 ```
 
 ---
@@ -125,8 +125,10 @@ Open an Issue for any of these situations:
 
 ## Acknowledgements
 
+> **Note:** ZebraByte is a rebranded fork of the original [Robin](https://github.com/apurvsinghgautam/robin) project by [Apurv Singh Gautam](https://github.com/apurvsinghgautam).
+
 - Idea inspiration from [Thomas Roccia](https://x.com/fr0gger_) and his demo of [Perplexity of the Dark Web](https://x.com/fr0gger_/status/1908051083068645558).
-- Tools inspiration from my [OSINT Tools for the Dark Web](https://github.com/apurvsinghgautam/dark-web-osint-tools) repository.
+- Tools inspiration from [OSINT Tools for the Dark Web](https://github.com/apurvsinghgautam/dark-web-osint-tools) repository.
 - LLM Prompt inspiration from [OSINT-Assistant](https://github.com/AXRoux/OSINT-Assistant) repository.
-- Logo Design by my friend [Tanishq Rupaal](https://github.com/Tanq16/)
+- Original Logo Design by [Tanishq Rupaal](https://github.com/Tanq16/)
 

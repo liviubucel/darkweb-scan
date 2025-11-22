@@ -20,7 +20,7 @@ def cached_scrape_multiple(filtered: list, threads: int):
 
 # Streamlit page configuration
 st.set_page_config(
-    page_title="Robin: AI-Powered Dark Web OSINT Tool",
+    page_title="ZebraByte: AI-Powered Dark Web OSINT Tool",
     page_icon="🕵️‍♂️",
     initial_sidebar_state="expanded",
 )
@@ -52,7 +52,7 @@ st.markdown(
 
 
 # Sidebar
-st.sidebar.title("Robin")
+st.sidebar.title("ZebraByte")
 st.sidebar.text("AI-Powered Dark Web OSINT Tool")
 st.sidebar.markdown(
     """Made by [Apurv Singh Gautam](https://www.linkedin.com/in/apurvsinghgautam/)"""
@@ -81,7 +81,7 @@ threads = st.sidebar.slider("Scraping Threads", 1, 16, 4, key="thread_slider")
 # Main UI - logo and input
 _, logo_col, _ = st.columns(3)
 with logo_col:
-    st.image(".github/assets/robin_logo.png", width=200)
+    st.image(".github/assets/zebrabyte_logo.png", width=200)
 
 # Display text box and button
 with st.form("search_form", clear_on_submit=True):
