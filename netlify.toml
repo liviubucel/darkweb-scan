@@ -1,0 +1,22 @@
+# This file exists to inform users that Robin cannot be deployed to Netlify
+#
+# Robin is a Streamlit web application that requires:
+# - Continuous Python server runtime
+# - Tor service running in background  
+# - Active threading and real-time processing
+# - Docker container or PaaS environment
+#
+# Netlify is designed for static sites and serverless functions with limited execution time.
+# It cannot host applications like Robin that need continuous server processes.
+#
+# FOR DEPLOYMENT INSTRUCTIONS, SEE: DEPLOYMENT.md
+#
+# Recommended platforms:
+# - Render.com (uses render.yaml in this repo)
+# - Railway.app (uses railway.json in this repo)
+# - Fly.io
+# - Heroku (uses Procfile in this repo)
+# - Self-hosted Docker
+#
+# This application WILL NOT WORK on Netlify.
+# Please refer to DEPLOYMENT.md for proper deployment instructions.

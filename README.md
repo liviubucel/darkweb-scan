@@ -4,7 +4,7 @@
    <h1>Robin: AI-Powered Dark Web OSINT Tool</h1>
 
    <p>Robin is an AI-powered tool for conducting dark web OSINT investigations. It leverages LLMs to refine queries, filter search results from dark web search engines, and provide an investigation summary.</p>
-   <a href="#installation">Installation</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#contributing">Contributing</a> &bull; <a href="#acknowledgements">Acknowledgements</a><br><br>
+   <a href="#installation">Installation</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#deployment">Deployment</a> &bull; <a href="#contributing">Contributing</a> &bull; <a href="#acknowledgements">Acknowledgements</a><br><br>
 </div>
 
 ![Demo](.github/assets/screen.png)
@@ -103,6 +103,39 @@ Example commands:
  - robin -m llama3.1 -q "zero days"
  - robin -m gemini-2.5-flash -q "zero days"
 ```
+
+---
+
+## Deployment
+
+### ❌ Why Netlify Won't Work
+
+Robin **cannot be deployed to Netlify** because:
+- It's a Streamlit application requiring a continuous Python server (not a static site)
+- It requires Tor service running in the background
+- It needs active threading and real-time processing capabilities
+
+### ✅ Recommended Deployment Platforms
+
+Robin can be easily deployed to platforms that support Docker containers and long-running web services:
+
+1. **[Render.com](https://render.com)** (Recommended - includes `render.yaml` in repo)
+2. **[Railway.app](https://railway.app)** (Automatic deployment from Dockerfile)
+3. **[Fly.io](https://fly.io)** (Global edge deployment)
+4. **[Heroku](https://heroku.com)** (Traditional PaaS - includes `Procfile` in repo)
+5. **[DigitalOcean App Platform](https://www.digitalocean.com/products/app-platform)**
+6. **Self-hosted Docker** (Full control)
+
+### 📖 Complete Deployment Guide
+
+For detailed deployment instructions, troubleshooting, and platform-specific configurations, see **[DEPLOYMENT.md](DEPLOYMENT.md)**.
+
+Quick start for Render:
+1. Fork this repo
+2. Sign up at render.com
+3. Create new Web Service from your fork
+4. Add environment variables (API keys)
+5. Deploy using the included `render.yaml`
 
 ---
 
