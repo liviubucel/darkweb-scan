@@ -1,1 +1,17 @@
+streamlit
+fastapi
+uvicorn
+requests
+beautifulsoup4
+python-dotenv
+openai
+langchain-core
+langchain-openai
+langchain-anthropic
+langchain-google-genai
+langchain-ollama
+click
+yaspin
+httpx
+pydantic
 reportlab
