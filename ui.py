@@ -8,112 +8,70 @@ from search import search_function
 from scrape import scrape_function
 from llm import detect_model, run_llm_analysis
 
-# ===================================
-# ZebraByte Branding Configuration
-# ===================================
+# ========================
+# ZEBRABYTE BRANDING
+# ========================
+
+# Page config
 st.set_page_config(
     page_title='ZebraByte Dark Web Intelligence Scanner',
-    page_icon='🦓',
     layout='wide',
     initial_sidebar_state='expanded'
 )
 
-# Custom CSS for ZebraByte Design
+# Custom CSS for ZebraByte theme
 st.markdown("""
 <style>
-    /* Global Theme */
+    /* Main theme */
     .stApp {
         background-color: #0a0a0a;
         color: #ffffff;
     }
     
-    /* Header Styling */
-    header {
-        background-color: #000000 !important;
+    /* Header styling */
+    h1, h2, h3 {
+        color: #ffffff;
+        font-weight: 700;
     }
     
-    /* Logo Container */
-    .logo-container {
-        text-align: center;
-        padding: 20px 0;
-        background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
-        border-bottom: 2px solid #333;
-        margin-bottom: 30px;
-    }
-    
-    /* Main Content */
-    .main-content {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-    
-    /* Input Fields */
-    .stTextInput > div > div > input {
+    /* Input fields */
+    .stTextInput input {
         background-color: #1a1a1a;
         color: #ffffff;
         border: 2px solid #333;
         border-radius: 8px;
-        padding: 12px;
-        font-size: 16px;
-    }
-    
-    .stTextInput > div > div > input:focus {
-        border-color: #666;
-        box-shadow: 0 0 10px rgba(255,255,255,0.1);
     }
     
     /* Buttons */
-    .stButton > button {
+    .stButton button {
         background-color: #000000;
         color: #ffffff;
-        border: 2px solid #333;
+        border: 2px solid #ffffff;
         border-radius: 8px;
-        padding: 12px 30px;
-        font-size: 16px;
         font-weight: 600;
-        transition: all 0.3s ease;
+        padding: 12px 40px;
+        transition: all 0.3s;
     }
     
-    .stButton > button:hover {
-        background-color: #1a1a1a;
-        border-color: #666;
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(255,255,255,0.1);
+    .stButton button:hover {
+        background-color: #ffffff;
+        color: #000000;
+        transform: scale(1.05);
     }
     
-    /* Results Container */
-    .result-card {
+    /* Results box */
+    .result-box {
         background-color: #1a1a1a;
-        border: 1px solid #333;
-        border-radius: 10px;
+        border-left: 4px solid #000000;
         padding: 20px;
-        margin: 15px 0;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
-    
-    /* Sidebar */
-    .css-1d391kg {
-        background-color: #0f0f0f;
-    }
-    
-    /* Model Indicator */
-    .model-badge {
-        display: inline-block;
-        background-color: #1a1a1a;
-        color: #00ff00;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-size: 14px;
-        font-weight: 600;
-        border: 1px solid #333;
         margin: 10px 0;
+        border-radius: 8px;
     }
     
     /* Footer */
     .footer {
         text-align: center;
-        padding: 30px 0;
+        padding: 30px;
         margin-top: 50px;
         border-top: 2px solid #333;
         color: #999;
@@ -122,212 +80,206 @@ st.markdown("""
     .footer a {
         color: #ffffff;
         text-decoration: none;
-        transition: color 0.3s ease;
+        font-weight: 600;
     }
     
     .footer a:hover {
-        color: #cccccc;
-    }
-    
-    /* Progress Indicator */
-    .stProgress > div > div {
-        background-color: #000000;
+        text-decoration: underline;
     }
 </style>
 """, unsafe_allow_html=True)
 
-# ===================================
-# Logo Header
-# ===================================
-st.markdown('<div class="logo-container">', unsafe_allow_html=True)
-st.image('https://static.zebrabyte.ro/web/image/3839-d356d2ee/logo-zebra-white.webp', width=350)
-st.markdown('</div>', unsafe_allow_html=True)
+# ZebraByte Logo Header
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    st.image('https://static.zebrabyte.ro/web/image/3839-d356d2ee/logo-zebra-white.webp', width=300)
 
-# ===================================
 # Main Title
-# ===================================
 st.title('🦓 ZebraByte Dark Web Intelligence Scanner')
 st.markdown('**AI-Powered OSINT | Professional Dark Web Monitoring**')
 st.markdown('---')
 
-# ===================================
-# Auto-Detect LLM Model
-# ===================================
-available_model_keys = {
-    'OPENAI_API_KEY': 'OpenAI (GPT-4)',
-    'ANTHROPIC_API_KEY': 'Anthropic (Claude)',
-    'GOOGLE_API_KEY': 'Google (Gemini)',
-    'OLLAMA_BASE_URL': 'Ollama (Local)'
-}
+# ========================
+# AUTO-DETECT LLM MODEL
+# ========================
 
-selected_model = None
-model_name = None
+def auto_detect_llm():
+    """Automatically detect available LLM from environment variables"""
+    api_keys = {
+        'OPENAI_API_KEY': 'OpenAI GPT',
+        'ANTHROPIC_API_KEY': 'Anthropic Claude',
+        'GOOGLE_API_KEY': 'Google Gemini',
+    }
+    
+    for key, name in api_keys.items():
+        if os.getenv(key):
+            return name
+    
+    # Check for Ollama (no API key needed)
+    try:
+        import requests
+        response = requests.get('http://localhost:11434/api/tags', timeout=2)
+        if response.status_code == 200:
+            return 'Ollama (Local)'
+    except:
+        pass
+    
+    return None
 
-for env_key, display_name in available_model_keys.items():
-    if os.getenv(env_key):
-        selected_model = env_key.split('_')[0].lower()
-        model_name = display_name
-        break
+selected_model = auto_detect_llm()
 
-# Display Model Status
-if not selected_model:
-    st.error('❌ No LLM model available! Please configure an API key.')
-    st.info('Add one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or configure Ollama')
-    st.stop()
+# Display model status
+if selected_model:
+    st.success(f'✅ **AI Model Active:** {selected_model}')
 else:
-    st.markdown(f'<div class="model-badge">🤖 Active Model: {model_name}</div>', unsafe_allow_html=True)
-    st.success(f'✅ System ready with {model_name}')
+    st.error('❌ **No AI model detected!** Please configure API keys in environment variables.')
+st.info('Set one of: OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_API_KEY, or run Ollama locally.')
 
 st.markdown('---')
 
-# ===================================
-# Search Interface
-# ===================================
-st.subheader('🔍 Dark Web Search Query')
+# ========================
+# MAIN INTERFACE
+# ========================
 
-col1, col2 = st.columns([3, 1])
+# Sidebar with info
+with st.sidebar:
+    st.header('ℹ️ About')
+    st.markdown("""
+    **ZebraByte Dark Web Scanner** uses AI to intelligently search and analyze dark web content.
+    
+    **Features:**
+    - 🔍 Multi-source dark web search
+    - 🧠 AI-powered analysis
+    - 📊 Comprehensive reports
+    - 🚀 Multi-threaded scraping
+    """)
+    
+    st.markdown('---')
+    
+    st.header('⚙️ Settings')
+    threads = st.slider('Scraping Threads', min_value=1, max_value=10, value=4)
+    
+    st.markdown('---')
+    
+    st.header('💡 Tips')
+    st.markdown("""
+    - Use specific keywords
+    - Try different thread counts
+    - Download reports for analysis
+    """)
 
-with col1:
-    query = st.text_input(
-        'Enter search query',
-        placeholder='e.g., data breach, leaked credentials, ransomware...',
-        help='Enter keywords to search the dark web'
-    )
+# Main search interface
+st.header('🔍 Start Your Scan')
 
-with col2:
-    threads = st.number_input(
-        'Threads',
-        min_value=1,
-        max_value=10,
-        value=4,
-        help='Number of parallel scraping threads'
-    )
+query = st.text_input(
+    'Enter search query:',
+    placeholder='e.g., data breach, leaked credentials, ransomware...',
+    help='Enter keywords to search the dark web'
+)
 
-# ===================================
-# Scan Execution
-# ===================================
+# Scan button
 if st.button('🚀 Start Scan', use_container_width=True):
     if not query:
-        st.warning('⚠️ Please enter a search query')
+        st.warning('⚠️ Please enter a search query!')
+    elif not selected_model:
+        st.error('❌ Cannot start scan without an AI model. Please configure API keys.')
     else:
         # Progress tracking
         progress_bar = st.progress(0)
         status_text = st.empty()
         
         try:
-            # Step 1: Search
+            # Step 1: Searching
             status_text.text('🔍 Searching dark web sources...')
             progress_bar.progress(25)
             
-            results = search_function(query, threads)
+            with st.spinner('Searching...'):
+                search_results = search_function(query, threads)
             
+            # Step 2: Scraping
+            status_text.text('📥 Scraping content...')
             progress_bar.progress(50)
             
-            # Step 2: Scrape
-            status_text.text('📡 Scraping content...')
-            scraped_data = scrape_function(results, threads)
-            
-            progress_bar.progress(75)
+            with st.spinner('Scraping...'):
+                scraped_data = scrape_function(search_results, threads)
             
             # Step 3: AI Analysis
-            status_text.text('🧠 Running AI analysis...')
-            summary = run_llm_analysis(scraped_data, selected_model)
+            status_text.text('🧠 Analyzing with AI...')
+            progress_bar.progress(75)
             
+            with st.spinner('Analyzing...'):
+                analysis = run_llm_analysis(scraped_data, selected_model)
+            
+            # Step 4: Complete
             progress_bar.progress(100)
             status_text.text('✅ Scan completed!')
             
-            st.success(f'✅ Found {len(results)} results')
+            st.success('🎉 Scan completed successfully!')
             
-            # ===================================
-            # Display Results
-            # ===================================
+            # Display results
             st.markdown('---')
-            st.subheader('📊 Intelligence Summary')
+            st.header('📊 Results')
             
-            with st.expander('🧠 AI-Generated Summary', expanded=True):
-                st.markdown(summary)
+            # AI Summary
+            st.subheader('🧠 AI Analysis Summary')
+            st.markdown(f"""
+            <div class="result-box">
+                {analysis}
+            </div>
+            """, unsafe_allow_html=True)
             
+            # Detailed results
+            st.subheader('📋 Detailed Findings')
+            
+            if scraped_data:
+                for idx, result in enumerate(scraped_data, 1):
+                    with st.expander(f'Result #{idx}: {result.get("title", "Unknown")}'):
+                        st.markdown(f"**URL:** {result.get('url', 'N/A')}")
+                        st.markdown(f"**Content:** {result.get('content', 'N/A')}")
+                        st.markdown(f"**Timestamp:** {result.get('timestamp', 'N/A')}")
+            else:
+                st.info('No results found.')
+            
+            # Download report
             st.markdown('---')
-            st.subheader(f'🔎 Detailed Findings ({len(results)} results)')
-            
-            for idx, result in enumerate(results, 1):
-                with st.expander(f'Result #{idx}: {result.get("title", "No title")}'):
-                    st.markdown(f'**URL:** {result.get("url", "N/A")}')
-                    st.markdown(f'**Content:**')
-                    st.text(result.get("content", "No content available"))
-            
-            # ===================================
-            # Download Report
-            # ===================================
-            st.markdown('---')
+            st.subheader('📥 Download Report')
             
             report_data = {
                 'query': query,
                 'timestamp': datetime.now().isoformat(),
-                'model_used': model_name,
-                'total_results': len(results),
-                'summary': summary,
-                'results': results
+                'model': selected_model,
+                'threads': threads,
+                'summary': analysis,
+                'results': scraped_data,
+                'total_results': len(scraped_data) if scraped_data else 0
             }
             
             report_json = json.dumps(report_data, indent=2)
             
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                st.download_button(
-                    label='📥 Download Complete Report (JSON)',
-                    data=report_json,
-                    file_name=f'zebrabyte_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json',
-                    mime='application/json',
-                    use_container_width=True
-                )
-        
+            st.download_button(
+                label='📄 Download Full Report (JSON)',
+                data=report_json,
+                file_name=f'zebrabyte_scan_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json',
+                mime='application/json',
+                use_container_width=True
+            )
+            
         except Exception as e:
             st.error(f'❌ Error during scan: {str(e)}')
-            st.info('Please check your configuration and try again')
+            st.exception(e)
 
-# ===================================
-# Sidebar Information
-# ===================================
-with st.sidebar:
-    st.markdown('### ℹ️ About')
-    st.markdown("""
-    **ZebraByte Dark Web Intelligence Scanner**
-    
-    Advanced OSINT tool for dark web monitoring and threat intelligence.
-    
-    **Features:**
-    - 🔍 Multi-source crawling
-    - 🧠 AI-powered analysis
-    - 📊 Comprehensive reporting
-    - ⚡ Parallel processing
-    """)
-    
-    st.markdown('---')
-    st.markdown('### 🛡️ Security Tips')
-    st.markdown("""
-    - Use VPN/Tor for anonymity
-    - Authorized research only
-    - Follow local regulations
-    - Protect sensitive data
-    """)
-    
-    st.markdown('---')
-    st.markdown('### 📞 Contact')
-    st.markdown("""
-    **ZebraByte**  
-    📧 contact@zebrabyte.ro  
-    📱 +40.316.302.226  
-    🌐 [zebrabyte.ro](https://zebrabyte.ro)
-    """)
-
-# ===================================
-# Footer
-# ===================================
-st.markdown('<div class="footer">', unsafe_allow_html=True)
+# ========================
+# FOOTER
+# ========================
+st.markdown('---')
 st.markdown("""
----
-**© 2024 ZebraByte. All Rights Reserved.**  
-Professional Cybersecurity Intelligence | [Website](https://zebrabyte.ro) | [Contact](mailto:contact@zebrabyte.ro) | +40.316.302.226
-""")
-st.markdown('</div>', unsafe_allow_html=True)
+<div class="footer">
+    <p><strong>🦓 ZebraByte - Professional Cybersecurity Intelligence</strong></p>
+    <p>
+        📧 <a href="mailto:contact@zebrabyte.ro">contact@zebrabyte.ro</a> | 
+        📱 <a href="tel:+40316302226">+40.316.302.226</a> | 
+        🌐 <a href="https://zebrabyte.ro" target="_blank">zebrabyte.ro</a>
+    </p>
+    <p style="font-size: 12px; color: #666;">© 2024 ZebraByte. All rights reserved.</p>
+</div>
+""", unsafe_allow_html=True)
