@@ -1,0 +1,6 @@
+name = "zebrabyte-darkweb-worker"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+PYTHON_BACKEND_URL = "https://zebrabyte.up.railway.app"
