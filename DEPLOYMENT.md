@@ -1,4 +1,4 @@
-# Deployment notes (Cloudflare Worker UI + Railway backend)
+# Deployment notes (secure Cloudflare Worker UI + Railway backend)
 
 ## Target architecture
 
@@ -8,99 +8,112 @@ Use this split:
 Browser -> Cloudflare Worker (UI + proxy) -> Railway FastAPI -> Tor -> .onion sources
 ```
 
-This project should not run the dark-web scan directly inside Vercel or Cloudflare Workers because the scan depends on:
-- Python packages such as `requests`, `bs4`, and LLM SDKs,
-- concurrent scraping,
-- a local Tor SOCKS proxy on `127.0.0.1:9050`.
+The Worker serves the UI and forwards requests.
+The Railway service runs Python, Tor, scraping, and LLM calls.
 
-## Why Vercel is not the right backend
+## Security model
 
-Vercel serverless functions are a poor fit for this scanner because they do not provide a stable local Tor daemon and are not designed for slower, thread-heavy dark-web scraping.
+Do not hardcode secrets in the repository.
 
-Use Vercel only if you want a separate static frontend. Do not place the Tor-dependent scan logic there.
+Use these runtime secrets:
+
+- Cloudflare Worker:
+  - `PYTHON_BACKEND_URL`
+  - `BACKEND_SHARED_SECRET`
+- Railway:
+  - `BACKEND_SHARED_SECRET`
+  - `ALLOWED_ORIGINS`
+  - your LLM provider keys
+
+The Worker sends `x-backend-secret` to the backend.
+The backend rejects any scan request without the correct secret.
 
 ## Railway backend setup
 
-Railway should run the Docker container from this repository. The container installs Tor and starts it before launching the FastAPI app.
-
-Do not override the container start command in Railway. The Docker container now reads `PORT` itself and starts `uvicorn` correctly.
+Railway should run the Docker container from this repository.
+Do not set a custom start command in Railway.
+The Docker container already starts Tor and then starts `uvicorn` using `PORT`.
 
 ### 1. Create the Railway service
 
 1. Push this repository to GitHub.
-2. In Railway, create a new project from that GitHub repo.
-3. Make sure Railway builds from the repository Dockerfile.
+2. In Railway, create a new project from this repo.
+3. Make sure it builds from the repository Dockerfile.
+4. If Railway has a custom Start Command set in the dashboard, remove it.
 
-### 2. Configure environment variables
+### 2. Add Railway variables
 
-Set the variables you actually use for the LLM provider:
+Set these in Railway `Variables`:
 
+- `BACKEND_SHARED_SECRET`
+- `ALLOWED_ORIGINS`
 - `OPENAI_API_KEY`
 - `ANTHROPIC_API_KEY`
 - `GOOGLE_API_KEY`
-- `OLLAMA_BASE_URL` if applicable
+- `OLLAMA_BASE_URL` if needed
 
-### 3. Deploy the backend
+Example:
 
-After deploy, Railway should expose a public URL such as:
+- `BACKEND_SHARED_SECRET` = a long random string
+- `ALLOWED_ORIGINS` = `https://your-worker.your-subdomain.workers.dev`
+
+### 3. Deploy and verify Railway
+
+After deploy, Railway gives you a public URL such as:
 
 ```text
 https://your-app.up.railway.app
 ```
 
-### 4. Verify the backend
+Verify:
 
-Test these endpoints:
+- `GET https://your-app.up.railway.app/health`
 
-- `GET /health`
-- `POST /api/darkweb-scan`
-
-Example request body:
+Expected result:
 
 ```json
 {
-  "query": "leaked credentials company x",
-  "threads": 4,
-  "model": "gpt-5-mini"
+  "status": "healthy"
 }
 ```
 
+Do not test `POST /api/darkweb-scan` directly from the browser unless you also send the shared secret header.
+
 ## Cloudflare Worker setup
 
-The Worker already acts as:
-- the frontend,
-- the public entrypoint,
-- the proxy to the Railway backend.
+The Worker is the public frontend and proxy.
 
-### 1. Configure the backend URL
+### 1. Add Worker secrets
 
-Open `cloudflare-worker/wrangler.toml` and set:
+In Cloudflare Worker settings, add:
 
-```toml
-PYTHON_BACKEND_URL = "https://your-app.up.railway.app"
-```
+- `PYTHON_BACKEND_URL` = your Railway public URL
+- `BACKEND_SHARED_SECRET` = exactly the same value as in Railway
+
+Use Cloudflare secrets/variables, not `wrangler.toml`, for these values.
 
 ### 2. Deploy the Worker
 
-From `cloudflare-worker/`, deploy with Wrangler:
+From `cloudflare-worker/`:
 
 ```bash
 wrangler deploy
 ```
 
-### 3. Test the Worker
+### 3. Verify Worker
 
 Check:
 
-- `GET /health`
-- load the Worker root URL in the browser,
-- submit a query from the UI,
-- confirm the Worker forwards the request to Railway.
+- Worker root URL loads the UI
+- `GET /health` on the Worker works
+- submitting a query from the UI reaches Railway
 
 ## End-to-end checklist
 
-1. Railway backend is online.
-2. `GET https://your-app.up.railway.app/health` returns healthy status.
-3. Worker `PYTHON_BACKEND_URL` points to that Railway URL.
-4. Worker deploy succeeds.
-5. Worker UI loads and `POST /api/darkweb-scan` returns scan results.
+1. Railway uses Dockerfile build.
+2. Railway has no custom Start Command override.
+3. Railway `BACKEND_SHARED_SECRET` is set.
+4. Railway `ALLOWED_ORIGINS` matches the Worker domain.
+5. Worker `PYTHON_BACKEND_URL` points to Railway.
+6. Worker `BACKEND_SHARED_SECRET` matches Railway.
+7. Worker UI loads and scan requests succeed.
