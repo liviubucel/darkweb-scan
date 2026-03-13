@@ -5,6 +5,7 @@ Provides dark web intelligence scanning via REST API.
 
 import os
 import secrets
+import logging
 from datetime import datetime
 from typing import List, Optional
 
@@ -16,6 +17,8 @@ from pydantic import BaseModel
 from llm import filter_results, generate_summary, get_llm, refine_query
 from scrape import scrape_multiple
 from search import get_search_results
+
+logging.basicConfig(level=logging.INFO)
 
 
 allowed_origins = [
@@ -118,6 +121,7 @@ async def scan_darkweb(
     except HTTPException:
         raise
     except Exception as exc:
+        logging.exception("Dark web scan failed")
         raise HTTPException(status_code=500, detail=f"Scan failed: {exc}") from exc
 
 

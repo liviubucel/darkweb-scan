@@ -30,7 +30,7 @@ export default {
 };
 
 async function proxyScanRequest(request, env) {
-  const backendBase = env.PYTHON_BACKEND_URL;
+  const backendBase = env.PYTHON_BACKEND_URL?.replace(/\/+$/, "");
   const backendSecret = env.BACKEND_SHARED_SECRET;
 
   if (!backendBase) {
