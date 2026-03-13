@@ -39,7 +39,7 @@ app.add_middleware(
 class DarkWebScanRequest(BaseModel):
     query: str
     threads: int = 4
-    model: str = "gpt-5-mini"
+    model: str = "gemini-2.5-flash"
 
 
 class DarkWebResult(BaseModel):

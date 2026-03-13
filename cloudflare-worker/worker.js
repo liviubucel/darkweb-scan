@@ -66,7 +66,7 @@ async function proxyScanRequest(request, env) {
     body: JSON.stringify({
       query: payload.query,
       threads: payload.threads ?? 4,
-      model: payload.model ?? "gpt-5-mini",
+      model: payload.model ?? "gemini-2.5-flash",
     }),
   });
 
