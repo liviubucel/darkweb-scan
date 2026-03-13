@@ -23,6 +23,8 @@ Use Vercel only if you want a separate static frontend. Do not place the Tor-dep
 
 Railway should run the Docker container from this repository. The container installs Tor and starts it before launching the FastAPI app.
 
+Do not override the container start command in Railway. The Docker container now reads `PORT` itself and starts `uvicorn` correctly.
+
 ### 1. Create the Railway service
 
 1. Push this repository to GitHub.
