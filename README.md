@@ -106,6 +106,10 @@ Example commands:
 
 ---
 
+## Deployment
+
+For Cloudflare Worker + Railway deployment and Vercel limitations, see `DEPLOYMENT.md`.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.

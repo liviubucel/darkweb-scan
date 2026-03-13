@@ -9,3 +9,5 @@ langchain-ollama
 langchain-anthropic
 langchain_community
 langchain_google_genai
+fastapi
+uvicorn[standard]
