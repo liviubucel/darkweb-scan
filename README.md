@@ -1,349 +1,132 @@
 <div align="center">
+   <img src=".github/assets/logo.png" alt="Logo" width="300">
+   <br><a href="https://github.com/apurvsinghgautam/robin/actions/workflows/binary.yml"><img alt="Build" src="https://github.com/apurvsinghgautam/robin/actions/workflows/binary.yml/badge.svg"></a> <a href="https://github.com/apurvsinghgautam/robin/releases"><img alt="GitHub Release" src="https://img.shields.io/github/v/release/apurvsinghgautam/robin"></a> <a href="https://hub.docker.com/r/apurvsg/robin"><img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/apurvsg/robin"></a>
+   <h1>Robin: AI-Powered Dark Web OSINT Tool</h1>
 
-<img src="https://static.zebrabyte.ro/web/image/3839-d356d2ee/logo-zebra-white.webp" alt="ZebraByte Logo" width="300"/>
-
-# ZebraByte Dark Web Intelligence Scanner
-
-**AI-Powered OSINT | Professional Dark Web Monitoring**
-
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115.0-green.svg)](https://fastapi.tiangolo.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.40.0-red.svg)](https://streamlit.io/)
-[![License](https://img.shields.io/badge/License-Proprietary-black.svg)](https://zebrabyte.ro)
-
-🔍 Advanced dark web intelligence gathering using AI-powered analysis  
-🧠 Multi-LLM support (OpenAI, Anthropic, Google, Ollama)  
-📊 Comprehensive OSINT reports with automated scraping  
-
-[🌐 Website](https://zebrabyte.ro) | [📧 Contact](mailto:contact@zebrabyte.ro) | [📱 +40.316.302.226](tel:+40316302226)
-
+   <p>Robin is an AI-powered tool for conducting dark web OSINT investigations. It leverages LLMs to refine queries, filter search results from dark web search engines, and provide an investigation summary.</p>
+   <a href="#installation">Installation</a> &bull; <a href="#usage">Usage</a> &bull; <a href="#contributing">Contributing</a> &bull; <a href="#acknowledgements">Acknowledgements</a><br><br>
 </div>
 
----
+![Demo](.github/assets/screen.png)
+![Demo](.github/assets/screen-ui.png)
 
-## 🦓 About ZebraByte
-
-**ZebraByte** is a leading cybersecurity intelligence company specializing in:  
-- 🛡️ **Dark Web Monitoring** - Real-time threat intelligence  
-- 🔍 **OSINT Services** - Open-source intelligence gathering  
-- 🧠 **AI-Powered Analysis** - Advanced LLM-based insights  
-- 📊 **Security Consulting** - Professional cybersecurity advisory
-
-This tool is part of ZebraByte's professional intelligence suite, designed for security researchers, analysts, and organizations requiring comprehensive dark web monitoring capabilities.
 
 ---
 
-## ✨ Features
+## Features
 
-### 🔍 Intelligent Search
-- **AI Query Refinement** - Automatically optimize search queries using LLM  
-- **Multi-Source Crawling** - Search across multiple dark web sources  
-- **Parallel Processing** - Configurable multi-threaded scraping
-
-### 🧠 AI Analysis
-- **Auto-Model Detection** - Automatically selects available LLM provider  
-- **Multi-LLM Support**:  
-  - OpenAI (GPT-4, GPT-4o-mini)  
-  - Anthropic (Claude 3.5 Sonnet)  
-  - Google (Gemini 1.5 Flash)  
-  - Ollama (Local models)  
-- **Smart Filtering** - LLM-powered result relevance filtering  
-- **Intelligent Summarization** - Comprehensive threat intelligence reports
-
-### 📊 Professional Interface
-- **Streamlit Web UI** - Beautiful, user-friendly interface with ZebraByte branding  
-- **FastAPI Backend** - High-performance REST API for integrations  
-- **Cloudflare Worker** - Global edge deployment for minimal latency
-
-### 🚀 Deployment Ready
-- **Railway Integration** - One-click cloud deployment  
-- **Docker Support** - Containerized deployment  
-- **Environment Configuration** - Flexible API key management
+- ⚙️ **Modular Architecture** – Clean separation between search, scrape, and LLM workflows.
+- 🤖 **Multi-Model Support** – Easily switch between OpenAI, Claude, Gemini or local models like Ollama.
+- 💻 **CLI-First Design** – Built for terminal warriors and automation ninjas.
+- 🐳 **Docker-Ready** – Optional Docker deployment for clean, isolated usage.
+- 📝 **Custom Reporting** – Save investigation output to file for reporting or further analysis.
+- 🧩 **Extensible** – Easy to plug in new search engines, models, or output formats.
 
 ---
 
-## 🚀 Quick Start
+## ⚠️ Disclaimer
+> This tool is intended for educational and lawful investigative purposes only. Accessing or interacting with certain dark web content may be illegal depending on your jurisdiction. The author is not responsible for any misuse of this tool or the data gathered using it.
+>
+> Use responsibly and at your own risk. Ensure you comply with all relevant laws and institutional policies before conducting OSINT investigations.
+>
+> Additionally, Robin leverages third-party APIs (including LLMs). Be cautious when sending potentially sensitive queries, and review the terms of service for any API or model provider you use.
 
-### Prerequisites
-- Python 3.11+  
-- API key for at least one LLM provider (OpenAI, Anthropic, Google, or Ollama)
+## Installation
+> [!NOTE]
+> The tool needs Tor to do the searches. You can install Tor using `apt install tor` on Linux/Windows(WSL) or `brew install tor` on Mac. Once installed, confirm if Tor is running in the background.
 
-### Installation
+> [!TIP]
+> You can provide OpenAI or Anthropic or Google API key by either creating .env file (refer to sample env file in the repo) or by setting env variables in PATH.
+>
+> For Ollama, provide `http://host.docker.internal:11434` as `OLLAMA_BASE_URL` in your env if running using docker method or `http://127.0.0.1:11434` for other methods. You might need to serve Ollama on 0.0.0.0 depending on your OS. You can do that using `OLLAMA_HOST=0.0.0.0 ollama serve &`.
 
-1. **Clone the repository**  
+### Docker (Web UI Mode) [Recommended]
+
+- Pull the latest Robin docker image
 ```bash
-git clone https://github.com/liviubucel/zebrabyte-darkweb-scan.git  
-cd zebrabyte-darkweb-scan
+docker pull apurvsg/robin:latest
 ```
 
-2. **Install dependencies**  
+- Run the docker image as:
+```bash
+docker run --rm \
+   -v "$(pwd)/.env:/app/.env" \
+   --add-host=host.docker.internal:host-gateway \
+   -p 8501:8501 \
+   apurvsg/robin:latest ui --ui-port 8501 --ui-host 0.0.0.0
+```
+
+### Release Binary (CLI Mode)
+
+- Download the appropriate binary for your system from the [latest release](https://github.com/apurvsinghgautam/robin/releases/latest)
+- Unzip the file, make it executable 
+```bash
+chmod +x robin
+```
+
+- Run the binary as:
+```bash
+robin cli --model gpt-4.1 --query "ransomware payments"
+```
+
+### Using Python (Development Version)
+
+- With `Python 3.10+` installed, run the following:
+
 ```bash
 pip install -r requirements.txt
-```
-
-3. **Configure API keys**  
-Create a `.env` file in the root directory:  
-```env
-# Choose at least one:
-OPENAI_API_KEY=your_openai_key_here
-ANTHROPIC_API_KEY=your_anthropic_key_here
-GOOGLE_API_KEY=your_google_key_here
-
-# Optional: Ollama (local models, no API key needed)
-```
-
-4. **Run the application**
-
-**Option A: Streamlit UI (Recommended)**  
-```bash
-streamlit run ui.py
-```  
-Access at: `http://localhost:8501`
-
-**Option B: FastAPI Backend**  
-```bash
-uvicorn api_server:app --host 0.0.0.0 --port 8000
-```  
-API at: `http://localhost:8000`
-
----
-
-## 🎯 Usage
-
-### Web Interface (Streamlit)
-
-1. **Open the UI** - Navigate to `http://localhost:8501`  
-2. **Enter Query** - Type your dark web search query (e.g., "data breach", "leaked credentials")  
-3. **Start Scan** - Click "🚀 Start Scan"  
-4. **Review Results** - View AI-generated summary and detailed findings  
-5. **Download Report** - Export complete intelligence report
-
-### API Usage (FastAPI)
-
-**Endpoint:** `POST /api/darkweb-scan`
-
-**Request:**  
-```json
-{
-  "query": "company data breach",
-  "threads": 4,
-  "model": "gpt-4o-mini"
-}
-```
-
-**Response:**  
-```json
-{
-  "query": "company data breach",
-  "refined_query": "recent corporate data breaches stolen credentials",
-  "timestamp": "2024-02-07T18:00:00",
-  "results": [
-    {
-      "title": "Result Title",
-      "url": "https://...",
-      "snippet": "Content preview..."
-    }
-  ],
-  "summary": "AI-generated intelligence summary...",
-  "total_results": 10
-}
-```
-
-**cURL Example:**  
-```bash
-curl -X POST https://zebrabyte.up.railway.app/api/darkweb-scan \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "ransomware groups",
-    "threads": 4
-  }'
+python main.py -m gpt-4.1 -q "ransomware payments" -t 12
 ```
 
 ---
 
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────┐
-│         Cloudflare Worker (Global Edge)         │
-│            Frontend + API Proxy Layer           │
-└─────────────────┬───────────────────────────────┘
-                  │
-                  ▼
-┌─────────────────────────────────────────────────┐
-│          Railway Backend (Python)               │
-│  ┌──────────────────────────────────────────┐   │
-│  │  FastAPI REST API (api_server.py)       │   │
-│  │  • POST /api/darkweb-scan                │   │
-│  │  • GET /health                           │   │
-│  └──────────────────────────────────────────┘   │
-│                                                  │
-│  ┌──────────────────────────────────────────┐   │
-│  │  Streamlit Web UI (ui.py)               │   │
-│  │  • Interactive interface                 │   │
-│  │  • Real-time scanning                    │   │
-│  │  • Report generation                     │   │
-│  └──────────────────────────────────────────┘   │
-│                                                  │
-│  ┌──────────────────────────────────────────┐   │
-│  │  Core Engine                             │   │
-│  │  • search.py - Dark web crawling         │   │
-│  │  • scrape.py - Content extraction        │   │
-│  │  • llm.py - AI analysis                  │   │
-│  └──────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────┘
-                  │
-                  ▼
-        ┌─────────────────────┐
-        │   LLM Providers     │
-        │ • OpenAI            │
-        │ • Anthropic         │
-        │ • Google            │
-        │ • Ollama (local)    │
-        └─────────────────────┘
-```
-
----
-
-## 📦 Project Structure
-
-```
-zebrabyte-darkweb-scan/
-├── ui.py                    # Streamlit web interface (ZebraByte branded)
-├── api_server.py           # FastAPI REST API backend
-├── llm.py                  # LLM integration (OpenAI, Anthropic, Google, Ollama)
-├── search.py               # Dark web search engine
-├── scrape.py               # Multi-threaded content scraper
-├── requirements.txt        # Python dependencies
-├── runtime.txt             # Python version specification
-├── Procfile                # Railway deployment config
-├── railway.json            # Railway service configuration
-├── cloudflare-worker/      # Edge deployment
-│   ├── worker.js          # Cloudflare Worker script
-│   └── wrangler.toml      # Worker configuration
-└── README.md              # This file
-```
-
----
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `OPENAI_API_KEY` | OpenAI API key for GPT models | One of these |
-| `ANTHROPIC_API_KEY` | Anthropic API key for Claude | is required |
-| `GOOGLE_API_KEY` | Google API key for Gemini | |
-| `PORT` | Server port (default: 8000) | No |
-
-### Supported LLM Models
-
-**OpenAI:**
-- `gpt-4o-mini` (recommended, fast & cost-effective)
-- `gpt-4o`
-- `gpt-4-turbo`
-
-**Anthropic:**
-- `claude-3-5-sonnet-20241022` (recommended)
-- `claude-3-opus-20240229`
-
-**Google:**
-- `gemini-1.5-flash` (recommended)
-- `gemini-1.5-pro`
-
-**Ollama (Local):**
-- `llama3.2:3b`
-- Any locally available model
-
----
-
-## 🚀 Deployment
-
-### Railway (Recommended)
-
-1. **Fork this repository**  
-2. **Connect to Railway:**  
-   - Go to [railway.app](https://railway.app)  
-   - Click "New Project" → "Deploy from GitHub repo"  
-   - Select your forked repository  
-3. **Add environment variables:**  
-   - Add your LLM API keys in Railway dashboard  
-4. **Deploy!** - Railway automatically detects and deploys
-
-**Live URL:** `https://zebrabyte.up.railway.app`
-
-### Cloudflare Workers
-
-1. **Install Wrangler CLI:**  
-```bash
-npm install -g wrangler
-```
-
-2. **Deploy worker:**  
-```bash
-cd cloudflare-worker
-wrangler deploy
-```
-
-### Docker (Coming Soon)
+## Usage
 
 ```bash
-docker build -t zebrabyte-darkweb-scan .
-docker run -p 8000:8000 -e OPENAI_API_KEY=your_key zebrabyte-darkweb-scan
+Robin: AI-Powered Dark Web OSINT Tool
+
+options:
+  -h, --help            show this help message and exit
+  --model {gpt4o,gpt-4.1,claude-3-5-sonnet-latest,llama3.1,gemini-2.5-flash}, -m {gpt4o,gpt-4.1,claude-3-5-sonnet-latest,llama3.1,gemini-2.5-flash}
+                        Select LLM model (e.g., gpt4o, claude sonnet 3.5, ollama models, gemini 2.5 flash)
+  --query QUERY, -q QUERY
+                        Dark web search query
+  --threads THREADS, -t THREADS
+                        Number of threads to use for scraping (Default: 5)
+  --output OUTPUT, -o OUTPUT
+                        Filename to save the final intelligence summary. If not provided, a filename based on the
+                        current date and time is used.
+
+Example commands:
+ - robin -m gpt4o -q "ransomware payments" -t 12
+ - robin --model claude-3-5-sonnet-latest --query "sensitive credentials exposure" --threads 8 --output filename
+ - robin -m llama3.1 -q "zero days"
+ - robin -m gemini-2.5-flash -q "zero days"
 ```
 
 ---
 
-## 🛡️ Security & Privacy
+## Contributing
 
-- ⚠️ **Professional Use Only** - This tool is designed for authorized security research
-- 🔒 **API Key Security** - Never commit API keys to version control
-- 🌐 **Network Security** - Consider using VPN/Tor for enhanced anonymity
-- 📊 **Data Handling** - All scanned data is processed in-memory, no persistent storage
-- 🔐 **Compliance** - Ensure compliance with local laws and regulations
+Contributions are welcome! Please feel free to submit a Pull Request.
 
----
+- Fork the repository
+- Create your feature branch (git checkout -b feature/amazing-feature)
+- Commit your changes (git commit -m 'Add some amazing feature')
+- Push to the branch (git push origin feature/amazing-feature)
+- Open a Pull Request
 
-## 📞 Support & Contact
-
-**ZebraByte Cybersecurity Intelligence**
-
-- 🌐 **Website:** [zebrabyte.ro](https://zebrabyte.ro)
-- 📧 **Email:** [contact@zebrabyte.ro](mailto:contact@zebrabyte.ro)
-- 📱 **Phone:** [+40.316.302.226](tel:+40316302226)
-- 🏢 **Enterprise Inquiries:** Available for custom deployments and integrations
+Open an Issue for any of these situations:
+- If you spot a bug or bad code
+- If you have a feature request idea
+- If you have questions or doubts about usage
 
 ---
 
-## 📄 License
+## Acknowledgements
 
-© 2024 ZebraByte. All rights reserved.
+- Idea inspiration from [Thomas Roccia](https://x.com/fr0gger_) and his demo of [Perplexity of the Dark Web](https://x.com/fr0gger_/status/1908051083068645558).
+- Tools inspiration from my [OSINT Tools for the Dark Web](https://github.com/apurvsinghgautam/dark-web-osint-tools) repository.
+- LLM Prompt inspiration from [OSINT-Assistant](https://github.com/AXRoux/OSINT-Assistant) repository.
+- Logo Design by my friend [Tanishq Rupaal](https://github.com/Tanq16/)
 
-This software is proprietary and confidential. Unauthorized copying, distribution, or use is strictly prohibited.
-
-For licensing inquiries, contact: [contact@zebrabyte.ro](mailto:contact@zebrabyte.ro)
-
----
-
-## 🙏 Credits
-
-**Developed by ZebraByte Team**  
-Based on Robin OSINT framework, enhanced with enterprise-grade features and ZebraByte intelligence capabilities.
-
-**Technologies:**
-- Python 3.11+
-- FastAPI & Streamlit
-- LangChain
-- BeautifulSoup4
-- Cloudflare Workers
-
----
-
-<div align="center">
-
-**🦓 ZebraByte - Professional Cybersecurity Intelligence**
-
-[Website](https://zebrabyte.ro) • [Contact](mailto:contact@zebrabyte.ro) • [Phone](tel:+40316302226)
-
-</div>
