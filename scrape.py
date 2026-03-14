@@ -1,6 +1,7 @@
 import random
 import requests
 import threading
+import os
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -20,6 +21,15 @@ USER_AGENTS = [
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.3179.54"
 ]
 
+def get_tor_proxies():
+    host = os.getenv("TOR_SOCKS_HOST", "127.0.0.1")
+    port = os.getenv("TOR_SOCKS_PORT", "9050")
+    return {
+        "http": f"socks5h://{host}:{port}",
+        "https": f"socks5h://{host}:{port}",
+    }
+
+
 # Global counter and lock for thread-safe Tor rotation
 request_counter = 0
 counter_lock = threading.Lock()
@@ -34,10 +44,7 @@ def scrape_single(url_data, rotate=False, rotate_interval=5, control_port=9051, 
     use_tor = ".onion" in url
     proxies = None
     if use_tor:
-        proxies = {
-            "http": "socks5h://127.0.0.1:9050",
-            "https": "socks5h://127.0.0.1:9050"
-        }
+        proxies = get_tor_proxies()
     headers = {
         "User-Agent": random.choice(USER_AGENTS)
     }

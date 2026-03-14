@@ -5,6 +5,7 @@ Provides dark web intelligence scanning via REST API.
 
 import os
 import secrets
+import socket
 from datetime import datetime
 from typing import List, Optional
 
@@ -105,6 +106,17 @@ def build_summary(query: str, refined_query: str, raw_count: int, filtered_count
     )
 
 
+def tor_is_available() -> bool:
+    host = os.getenv("TOR_SOCKS_HOST", "127.0.0.1")
+    port = int(os.getenv("TOR_SOCKS_PORT", "9050"))
+    timeout = float(os.getenv("TOR_HEALTHCHECK_TIMEOUT", "1.5"))
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 @app.get("/")
 async def root():
     return {
@@ -169,7 +181,11 @@ async def scan_darkweb(
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "tor_available": tor_is_available(),
+    }
 
 
 if __name__ == "__main__":

@@ -23,6 +23,9 @@ Use these runtime secrets:
 - Railway:
   - `BACKEND_SHARED_SECRET`
   - `ALLOWED_ORIGINS`
+  - `TOR_SOCKS_HOST` optional, default `127.0.0.1`
+  - `TOR_SOCKS_PORT` optional, default `9050`
+  - `TOR_BOOTSTRAP_TIMEOUT` optional, default `45`
   - your LLM provider keys
 
 The Worker sends `x-backend-secret` to the backend.
@@ -73,7 +76,8 @@ Expected result:
 
 ```json
 {
-  "status": "healthy"
+  "status": "healthy",
+  "tor_available": true
 }
 ```
 

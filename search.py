@@ -1,3 +1,4 @@
+import os
 import requests
 import random, re
 from bs4 import BeautifulSoup
@@ -37,9 +38,11 @@ SEARCH_ENGINE_ENDPOINTS = [
 ]
 
 def get_tor_proxies():
+    host = os.getenv("TOR_SOCKS_HOST", "127.0.0.1")
+    port = os.getenv("TOR_SOCKS_PORT", "9050")
     return {
-        "http": "socks5h://127.0.0.1:9050",
-        "https": "socks5h://127.0.0.1:9050"
+        "http": f"socks5h://{host}:{port}",
+        "https": f"socks5h://{host}:{port}"
     }
 
 def fetch_search_results(endpoint, query):
