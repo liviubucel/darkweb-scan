@@ -110,6 +110,11 @@ Example commands:
 
 For Cloudflare Worker + Railway deployment and Vercel limitations, see `DEPLOYMENT.md`.
 
+## OpenClaw
+
+This repository now includes an OpenClaw-ready skill at `skills/zebrabyte-investigator`.
+Use it to let an OpenClaw agent call the local ZebraByte dark web and vulnerability scanners through the bundled scripts instead of reimplementing the workflow in prompts.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
@@ -133,4 +138,3 @@ Open an Issue for any of these situations:
 - Tools inspiration from my [OSINT Tools for the Dark Web](https://github.com/apurvsinghgautam/dark-web-osint-tools) repository.
 - LLM Prompt inspiration from [OSINT-Assistant](https://github.com/AXRoux/OSINT-Assistant) repository.
 - Logo Design by my friend [Tanishq Rupaal](https://github.com/Tanq16/)
-

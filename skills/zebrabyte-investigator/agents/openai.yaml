@@ -1,0 +1,4 @@
+interface:
+  display_name: "ZebraByte Investigator"
+  short_description: "Use ZebraByte dark web and vulnerability scanners from OpenClaw."
+  default_prompt: "Investigate domains, companies, leaks, and exposure by calling the bundled ZebraByte scanner tools before answering."
