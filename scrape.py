@@ -1,9 +1,9 @@
 import random
 import requests
 import threading
-import os
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from tor_config import get_tor_proxies
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -20,15 +20,6 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.3179.54",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.3179.54"
 ]
-
-def get_tor_proxies():
-    host = os.getenv("TOR_SOCKS_HOST", "127.0.0.1")
-    port = os.getenv("TOR_SOCKS_PORT", "9050")
-    return {
-        "http": f"socks5h://{host}:{port}",
-        "https": f"socks5h://{host}:{port}",
-    }
-
 
 # Global counter and lock for thread-safe Tor rotation
 request_counter = 0

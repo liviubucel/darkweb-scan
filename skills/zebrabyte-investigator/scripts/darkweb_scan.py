@@ -1,7 +1,5 @@
 import argparse
 import json
-import os
-import socket
 import sys
 from pathlib import Path
 
@@ -13,16 +11,7 @@ if str(REPO_ROOT) not in sys.path:
 from api_server import build_summary
 from scrape import scrape_multiple
 from search import get_search_results
-
-
-def tor_is_available(host: str = "127.0.0.1", port: int = 9050, timeout: float = 1.0) -> bool:
-    host = os.getenv("TOR_SOCKS_HOST", host)
-    port = int(os.getenv("TOR_SOCKS_PORT", str(port)))
-    try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except OSError:
-        return False
+from tor_config import tor_is_available
 
 
 def run_scan(query: str, threads: int, max_results: int) -> dict:

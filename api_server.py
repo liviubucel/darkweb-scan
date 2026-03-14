@@ -5,7 +5,6 @@ Provides dark web intelligence scanning via REST API.
 
 import os
 import secrets
-import socket
 from datetime import datetime
 from typing import List, Optional
 
@@ -16,6 +15,7 @@ from pydantic import BaseModel
 
 from scrape import scrape_multiple
 from search import get_search_results
+from tor_config import get_tor_proxy_url, tor_is_available
 
 
 allowed_origins = [
@@ -104,19 +104,6 @@ def build_summary(query: str, refined_query: str, raw_count: int, filtered_count
         "- Re-run the search with a more specific actor, company, breach, or artifact name.\n"
         "- Use the snippets to decide which links justify deeper manual investigation."
     )
-
-
-def tor_is_available() -> bool:
-    host = os.getenv("TOR_SOCKS_HOST", "127.0.0.1")
-    port = int(os.getenv("TOR_SOCKS_PORT", "9050"))
-    timeout = float(os.getenv("TOR_HEALTHCHECK_TIMEOUT", "1.5"))
-    try:
-        with socket.create_connection((host, port), timeout=timeout):
-            return True
-    except OSError:
-        return False
-
-
 @app.get("/")
 async def root():
     return {
@@ -185,6 +172,7 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "tor_available": tor_is_available(),
+        "tor_proxy": get_tor_proxy_url(),
     }
 
 

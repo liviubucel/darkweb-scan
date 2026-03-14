@@ -1,8 +1,8 @@
-import os
 import requests
 import random, re
 from bs4 import BeautifulSoup
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from tor_config import get_tor_proxies
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -36,14 +36,6 @@ SEARCH_ENGINE_ENDPOINTS = [
     "http://tor66sewebgixwhcqfnp5inzp5x5uohhdy3kvtnyfxc2e5mxiuh34iid.onion/search?q={query}", # Tor66
     "http://3fzh7yuupdfyjhwt3ugzqqof6ulbcl27ecev33knxe3u7goi3vfn2qqd.onion/oss/index.php?search={query}", # OSS (Onion Search Server)
 ]
-
-def get_tor_proxies():
-    host = os.getenv("TOR_SOCKS_HOST", "127.0.0.1")
-    port = os.getenv("TOR_SOCKS_PORT", "9050")
-    return {
-        "http": f"socks5h://{host}:{port}",
-        "https": f"socks5h://{host}:{port}"
-    }
 
 def fetch_search_results(endpoint, query):
     url = endpoint.format(query=query)

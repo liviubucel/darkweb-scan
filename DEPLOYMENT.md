@@ -11,6 +11,18 @@ Browser -> Cloudflare Worker (UI + proxy) -> Railway FastAPI -> Tor -> .onion so
 The Worker serves the UI and forwards requests.
 The Railway service runs Python, Tor, scraping, and LLM calls.
 
+## Vercel experimental mode
+
+Vercel cannot run a local Tor daemon reliably for this project. If you still want to try Vercel, use an external SOCKS5 endpoint and set:
+
+- `TOR_SOCKS_SCHEME` default `socks5h`
+- `TOR_SOCKS_HOST`
+- `TOR_SOCKS_PORT`
+- `TOR_SOCKS_USERNAME` optional
+- `TOR_SOCKS_PASSWORD` optional
+
+This mode is experimental. The Vercel Function may still fail because of execution time, cold starts, or network restrictions.
+
 ## Security model
 
 Do not hardcode secrets in the repository.
