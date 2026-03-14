@@ -5,7 +5,6 @@ Provides dark web intelligence scanning via REST API.
 
 import os
 import secrets
-import logging
 from datetime import datetime
 from typing import List, Optional
 
@@ -14,11 +13,8 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from llm import filter_results, generate_summary, get_llm, refine_query
 from scrape import scrape_multiple
 from search import get_search_results
-
-logging.basicConfig(level=logging.INFO)
 
 
 allowed_origins = [
@@ -42,7 +38,7 @@ app.add_middleware(
 class DarkWebScanRequest(BaseModel):
     query: str
     threads: int = 4
-    model: str = "auto"
+    model: str = "disabled"
 
 
 class DarkWebResult(BaseModel):
@@ -67,95 +63,46 @@ def verify_backend_secret(header_value: Optional[str]) -> None:
         raise HTTPException(status_code=401, detail="Unauthorized.")
 
 
-def configured_model_candidates(requested_model: str) -> List[str]:
-    configured = []
-    if os.getenv("GOOGLE_API_KEY"):
-        configured.append("gemini-2.5-flash")
-    if os.getenv("OPENAI_API_KEY"):
-        configured.append("gpt-5-mini")
-    if os.getenv("ANTHROPIC_API_KEY"):
-        configured.append("claude-sonnet-4-5")
-    if os.getenv("OLLAMA_BASE_URL"):
-        configured.append("llama3.1")
+def build_summary(query: str, refined_query: str, raw_count: int, filtered_count: int, scraped_results: dict) -> str:
+    if not scraped_results:
+        return (
+            f"Input Query: {query}\n\n"
+            f"Refined Query: {refined_query}\n\n"
+            "Source Links Referenced for Analysis:\n"
+            "No source links were available for analysis.\n\n"
+            "What This Means:\n"
+            f"1. The query returned {raw_count} raw results and {filtered_count} filtered results.\n"
+            "2. No usable page content was collected from the selected results.\n"
+            "3. This usually happens when onion indexes have no matches, pages are offline, or the term is too narrow.\n\n"
+            "Next Steps:\n"
+            "- Try broader or adjacent terms such as breach, dump, combo, forum, market, or logs.\n"
+            "- Retry later because hidden services and onion indexes are unstable.\n"
+            "- Add a company, threat actor, breach, or product name for a more precise search."
+        )
 
-    requested = (requested_model or "auto").strip()
-    if requested.lower() == "auto":
-        return configured
+    source_lines = []
+    snippet_lines = []
+    for index, (url, content) in enumerate(scraped_results.items(), start=1):
+        source_lines.append(f"{index}. {url}")
+        cleaned = " ".join(content.split())
+        snippet_lines.append(f"{index}. {cleaned[:280]}")
 
-    ordered = [requested]
-    for model in configured:
-        if model not in ordered:
-            ordered.append(model)
-    return ordered
-
-
-def build_llm_candidates(requested_model: str):
-    candidates = []
-    for model_name in configured_model_candidates(requested_model):
-        try:
-            candidates.append((model_name, get_llm(model_name)))
-        except Exception:
-            logging.exception("Failed to initialize model '%s'", model_name)
-    return candidates
-
-
-def try_refine_query(query: str, llm_candidates) -> str:
-    for model_name, llm in llm_candidates:
-        try:
-            refined = refine_query(llm, query)
-            if refined and refined.strip():
-                return refined.strip()
-        except Exception:
-            logging.exception("Query refinement failed with model '%s'", model_name)
-    return query
-
-
-def try_filter_results(query: str, results: list, llm_candidates) -> list:
-    if not results:
-        return []
-    if len(results) <= 10:
-        return results[:10]
-
-    for model_name, llm in llm_candidates:
-        try:
-            filtered = filter_results(llm, query, results)
-            if filtered:
-                return filtered
-        except Exception:
-            logging.exception("Result filtering failed with model '%s'", model_name)
-    return results[:10]
-
-
-def fallback_summary(query: str, refined_query: str, raw_count: int, filtered_count: int) -> str:
     return (
         f"Input Query: {query}\n\n"
         f"Refined Query: {refined_query}\n\n"
         "Source Links Referenced for Analysis:\n"
-        "No source links were available for analysis.\n\n"
-        "Investigation Artifacts:\n"
-        "No artifacts could be extracted because the scan returned no usable dark web pages.\n\n"
-        "Key Insights:\n"
-        f"1. The query returned {raw_count} raw results and {filtered_count} filtered results.\n"
-        "2. No scrapeable pages were available for summary generation.\n"
-        "3. This can happen when onion indexes have no matches, pages are offline, or the query is too broad.\n\n"
+        f"{chr(10).join(source_lines)}\n\n"
+        "What Was Found:\n"
+        f"1. The search returned {raw_count} raw results.\n"
+        f"2. The API kept {filtered_count} candidate results for scraping.\n"
+        f"3. {len(scraped_results)} pages returned usable text.\n\n"
+        "Collected Snippets:\n"
+        f"{chr(10).join(snippet_lines)}\n\n"
         "Next Steps:\n"
-        "- Try a more specific query with product, actor, breach, forum, or victim terms.\n"
-        "- Retry later because onion indexes and hidden services are often unstable.\n"
-        "- Use alternate keywords such as dump, leak, combo, breach, logs, market, or forum."
+        "- Review the source links with the strongest match to your query.\n"
+        "- Re-run the search with a more specific actor, company, breach, or artifact name.\n"
+        "- Use the snippets to decide which links justify deeper manual investigation."
     )
-
-
-def try_generate_summary(query: str, refined_query: str, scraped_results: dict, raw_count: int, filtered_count: int, llm_candidates) -> str:
-    if not scraped_results:
-        return fallback_summary(query, refined_query, raw_count, filtered_count)
-
-    for model_name, llm in llm_candidates:
-        try:
-            return generate_summary(llm, query, scraped_results)
-        except Exception:
-            logging.exception("Summary generation failed with model '%s'", model_name)
-
-    return fallback_summary(query, refined_query, raw_count, filtered_count)
 
 
 @app.get("/")
@@ -180,21 +127,19 @@ async def scan_darkweb(
 
     try:
         start_time = datetime.now()
-        llm_candidates = build_llm_candidates(request.model)
-        refined_query = try_refine_query(request.query, llm_candidates)
+        refined_query = request.query.strip()
         search_results = get_search_results(
             refined_query.replace(" ", "+"),
             max_workers=request.threads,
         )
-        filtered_results = try_filter_results(refined_query, search_results, llm_candidates)
+        filtered_results = search_results[:10]
         scraped_results = scrape_multiple(filtered_results, max_workers=request.threads)
-        summary = try_generate_summary(
+        summary = build_summary(
             request.query,
             refined_query,
-            scraped_results,
             len(search_results),
             len(filtered_results),
-            llm_candidates,
+            scraped_results,
         )
 
         formatted_results = []
@@ -219,7 +164,6 @@ async def scan_darkweb(
     except HTTPException:
         raise
     except Exception as exc:
-        logging.exception("Dark web scan failed")
         raise HTTPException(status_code=500, detail=f"Scan failed: {exc}") from exc
 
 
