@@ -18,6 +18,8 @@ jobs:
           node-version: "22"
       - run: npm install --ignore-scripts
       - run: npm run typecheck
+      - name: Validate Wrangler configuration and bundle
+        run: npm run deploy:dry
       - run: npm audit --audit-level=high
       - uses: actions/setup-python@v5
         with:
@@ -25,6 +27,13 @@ jobs:
       - run: python -m compileall -q collector
       - run: python -m pip install --disable-pip-version-check pip-audit
       - run: pip-audit -r collector/requirements.txt
+      - name: Reject unresolved production placeholders
+        shell: bash
+        run: |
+          if grep -nE 'REPLACE_[A-Z0-9_]+' wrangler.jsonc; then
+            echo "Unresolved production placeholder detected in wrangler.jsonc"
+            exit 1
+          fi
       - name: Reject committed secrets
         shell: bash
         run: |
