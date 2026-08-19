@@ -6,6 +6,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
   "observability": { "enabled": true },
+  "triggers": { "crons": ["7 * * * *"] },
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
   "ai": { "binding": "AI", "remote": true },
   "browser": { "binding": "BROWSER", "remote": true },
@@ -27,8 +28,14 @@
     { "name": "PAID_RATE_LIMITER", "namespace_id": "41002", "simple": { "limit": 120, "period": 60 } }
   ],
   "queues": {
-    "producers": [{ "binding": "NOTIFICATIONS", "queue": "zebrabyte-darkweb-notifications" }],
-    "consumers": [{ "queue": "zebrabyte-darkweb-notifications", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5, "dead_letter_queue": "zebrabyte-darkweb-notifications-dlq" }]
+    "producers": [
+      { "binding": "NOTIFICATIONS", "queue": "zebrabyte-darkweb-notifications" },
+      { "binding": "MONITORING", "queue": "zebrabyte-darkweb-monitoring" }
+    ],
+    "consumers": [
+      { "queue": "zebrabyte-darkweb-notifications", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5, "dead_letter_queue": "zebrabyte-darkweb-notifications-dlq" },
+      { "queue": "zebrabyte-darkweb-monitoring", "max_batch_size": 1, "max_batch_timeout": 2, "max_retries": 10, "retry_delay": 120, "max_concurrency": 1, "dead_letter_queue": "zebrabyte-darkweb-monitoring-dlq" }
+    ]
   },
   "workflows": [{ "name": "zebrabyte-darkweb-investigation", "binding": "INVESTIGATION_WORKFLOW", "class_name": "InvestigationWorkflow", "limits": { "steps": 10000 } }],
   "containers": [{ "class_name": "TorCollector", "image": "./Dockerfile", "max_instances": 1, "instance_type": "lite" }],
