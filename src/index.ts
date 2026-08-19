@@ -1,11 +1,13 @@
-import { authenticate } from "./auth";
+import { authenticate, isAuthenticationConfigured } from "./auth";
 import { track } from "./analytics";
 import { createBillingPortal, createCheckout, getBillingState, handleStripeWebhook } from "./billing";
+import { ensureDatabase } from "./bootstrap";
 import { correlateIntelligence } from "./correlation";
 import {
   consumeInvestigationQuota,
   createInvestigation,
   deleteInvestigationRecords,
+  ensureOrganization,
   getInvestigation,
   getInvestigationDeletionTargets,
   getPlan,
@@ -33,6 +35,17 @@ async function enforceRateLimit(env: Env, orgId: string, plan: Plan): Promise<vo
   if (!success) throw new HttpError(429, "Rate limit exceeded");
 }
 
+async function flagEnabled(env: Env, key: string, context: Record<string, unknown>): Promise<boolean> {
+  if (!env.FLAGS) return true;
+  try { return await env.FLAGS.getBooleanValue(key, true, context); }
+  catch { return true; }
+}
+
+function configured(value: string | undefined): boolean {
+  const normalized = value?.trim();
+  return Boolean(normalized && !normalized.startsWith("REPLACE_"));
+}
+
 function boundedInteger(value: string | null, fallback: number, minimum: number, maximum: number): number {
   if (value === null || value.trim() === "") return fallback;
   const parsed = Number(value);
@@ -49,13 +62,32 @@ async function ensureInvestigation(env: Env, orgId: string, id: string) {
 async function handleApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === "GET" && url.pathname === "/api/health") {
-    return json({ ok: true, service: env.APP_NAME, version: env.CF_VERSION_METADATA.id, time: new Date().toISOString() });
+    return json({
+      ok: true,
+      service: env.APP_NAME,
+      version: env.CF_VERSION_METADATA.id,
+      time: new Date().toISOString(),
+      configuration: {
+        authentication: isAuthenticationConfigured(env),
+        stripePricing: configured(env.STRIPE_PRICE_PRO) || configured(env.STRIPE_PRICE_BUSINESS),
+        stripeSecretBound: Boolean(env.STRIPE_SECRET_KEY),
+        stripeWebhookSecretBound: Boolean(env.STRIPE_WEBHOOK_SECRET),
+        onionSearchConfigBound: Boolean(env.ONION_SEARCH_ENGINES_JSON),
+        vectorize: Boolean(env.INTELLIGENCE_INDEX),
+        aiSearch: Boolean(env.AI_SEARCH),
+        flagship: Boolean(env.FLAGS),
+      },
+    });
   }
+
+  await ensureDatabase(env);
+
   if (request.method === "POST" && url.pathname === "/api/stripe/webhook") {
     return handleStripeWebhook(request, env);
   }
 
   const auth = await authenticate(request, env);
+  await ensureOrganization(env, auth);
   const plan = await getPlan(env, auth.orgId);
   await enforceRateLimit(env, auth.orgId, plan);
 
@@ -74,13 +106,13 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "POST" && url.pathname === "/api/billing/checkout") {
     const body = await readJson<{ plan?: unknown }>(request, 2_048);
-    const session = await createCheckout(env, auth, body.plan);
+    const session = await createCheckout(env, auth, body.plan, request.url);
     await track(env, "billing_checkout_created", auth.orgId, plan);
     return json(session, 201);
   }
 
   if (request.method === "POST" && url.pathname === "/api/billing/portal") {
-    const portal = await createBillingPortal(env, auth);
+    const portal = await createBillingPortal(env, auth, request.url);
     await track(env, "billing_portal_created", auth.orgId, plan);
     return json(portal, 201);
   }
@@ -115,8 +147,8 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/api/watchlists") {
-    const featureEnabled = await env.FLAGS.getBooleanValue("monitoring", true, { userId: auth.userId, orgId: auth.orgId, plan });
-    if (!featureEnabled) throw new HttpError(503, "Monitoring is temporarily unavailable");
+    const enabled = await flagEnabled(env, "monitoring", { userId: auth.userId, orgId: auth.orgId, plan });
+    if (!enabled) throw new HttpError(503, "Monitoring is temporarily unavailable");
     const body = await readJson<WatchlistInput>(request, 4_096);
     const watchlist = await createWatchlist(env, auth, plan, body);
     await track(env, "watchlist_created", auth.orgId, plan, [watchlist.interval_hours]);
@@ -145,8 +177,8 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     const query = normalizeQuery(body.query, Number(env.MAX_QUERY_CHARS) || 300);
     const requestedProfile = body.profile ?? "general";
     const profile: NonNullable<InvestigationRequest["profile"]> = ["general", "identity", "corporate", "ransomware"].includes(requestedProfile) ? requestedProfile : "general";
-    const featureEnabled = await env.FLAGS.getBooleanValue("investigations", true, { userId: auth.userId, orgId: auth.orgId, plan });
-    if (!featureEnabled) throw new HttpError(503, "Investigations are temporarily unavailable");
+    const enabled = await flagEnabled(env, "investigations", { userId: auth.userId, orgId: auth.orgId, plan });
+    if (!enabled) throw new HttpError(503, "Investigations are temporarily unavailable");
 
     const quota = await consumeInvestigationQuota(env, auth.orgId, plan);
     let id: string | undefined;
@@ -194,7 +226,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       const targets = await getInvestigationDeletionTargets(env, auth.orgId, id);
       for (const key of targets.objectKeys) await env.EVIDENCE.delete(key);
       if (targets.sourceIds.length && env.INTELLIGENCE_INDEX) await env.INTELLIGENCE_INDEX.deleteByIds(targets.sourceIds);
-      if (targets.aiSearchItemId) await deleteInvestigationKnowledge(env, auth.orgId, targets.aiSearchItemId);
+      if (targets.aiSearchItemId) await deleteInvestigationKnowledge(env, auth.orgId, targets.aiSearchItemId).catch(() => undefined);
       const deleted = await deleteInvestigationRecords(env, auth, id);
       if (!deleted) throw new HttpError(404, "Investigation not found");
       await track(env, "investigation_deleted", auth.orgId, plan, [targets.objectKeys.length, targets.sourceIds.length]);
@@ -218,6 +250,7 @@ export default {
     }
   },
   async queue(batch: MessageBatch<QueueJob>, env: Env): Promise<void> {
+    await ensureDatabase(env);
     if (batch.queue === "zebrabyte-darkweb-monitoring") {
       await consumeMonitoring(batch as unknown as MessageBatch<MonitoringJob>, env);
       return;
@@ -229,6 +262,7 @@ export default {
     batch.ackAll();
   },
   async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    await ensureDatabase(env);
     await enqueueDueMonitoring(env);
   },
 } satisfies ExportedHandler<Env>;
