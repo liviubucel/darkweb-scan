@@ -80,6 +80,10 @@ export interface Env {
   MAX_QUERY_CHARS: string;
   ALLOWED_BROWSER_HOSTS: string;
   EMAIL_FROM: string;
+  PLAN_FREE_INVESTIGATIONS: string;
+  PLAN_PRO_INVESTIGATIONS: string;
+  PLAN_BUSINESS_INVESTIGATIONS: string;
+  PLAN_ENTERPRISE_INVESTIGATIONS: string;
 }
 
 export interface NotificationJob {
