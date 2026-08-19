@@ -1,4 +1,6 @@
 export type Plan = "free" | "pro" | "business" | "enterprise";
+export type InvestigationProfile = "general" | "identity" | "corporate" | "ransomware";
+export type WatchlistType = "domain" | "email" | "brand" | "person" | "keyword";
 
 export interface AuthContext {
   userId: string;
@@ -9,7 +11,7 @@ export interface AuthContext {
 
 export interface InvestigationRequest {
   query: string;
-  profile?: "general" | "identity" | "corporate" | "ransomware";
+  profile?: InvestigationProfile;
 }
 
 export interface InvestigationWorkflowPayload {
@@ -41,6 +43,13 @@ export interface ExtractedArtifact {
   value: string;
 }
 
+export interface WatchlistInput {
+  type: WatchlistType;
+  value: string;
+  intervalHours?: number;
+  profile?: InvestigationProfile;
+}
+
 export interface Env {
   ASSETS: Fetcher;
   AI: Ai;
@@ -67,6 +76,7 @@ export interface Env {
   FREE_RATE_LIMITER: RateLimit;
   PAID_RATE_LIMITER: RateLimit;
   NOTIFICATIONS: Queue<NotificationJob>;
+  MONITORING: Queue<MonitoringJob>;
   INVESTIGATION_WORKFLOW: Workflow;
   TOR_COLLECTOR: DurableObjectNamespace;
   CF_VERSION_METADATA: WorkerVersionMetadata;
@@ -95,3 +105,12 @@ export interface NotificationJob {
   investigationId: string;
   recipient?: string;
 }
+
+export interface MonitoringJob {
+  type: "monitoring.run";
+  runId: string;
+  watchlistId: string;
+  orgId: string;
+}
+
+export type QueueJob = NotificationJob | MonitoringJob;
