@@ -25,15 +25,17 @@ function configured(value: string | undefined): string | undefined {
   return normalized;
 }
 
-function authConfig(env: Env): { issuer: string; jwksUrl: string; audience: string; authorizedParties: string } {
+function authConfig(env: Env, request: Request): { issuer: string; jwksUrl: string; audience: string; authorizedParties: string } {
   const issuer = configured(env.CLERK_ISSUER);
   const jwksUrl = configured(env.CLERK_JWKS_URL);
   if (!issuer || !jwksUrl) throw new HttpError(503, "Authentication is not configured");
+  let requestOrigin = "";
+  try { requestOrigin = new URL(request.url).origin; } catch { throw new HttpError(400, "Invalid request URL"); }
   return {
     issuer,
     jwksUrl,
     audience: configured(env.CLERK_AUDIENCE) ?? "",
-    authorizedParties: configured(env.CLERK_AUTHORIZED_PARTIES) ?? "",
+    authorizedParties: configured(env.CLERK_AUTHORIZED_PARTIES) ?? requestOrigin,
   };
 }
 
@@ -50,7 +52,6 @@ function audienceMatches(actual: string | string[] | undefined, expected: string
 }
 function authorizedPartyMatches(actual: string | undefined, configuredParties: string): boolean {
   const allowed = configuredParties.split(",").map((value) => value.trim()).filter(Boolean);
-  if (!allowed.length) return true;
   return typeof actual === "string" && allowed.includes(actual);
 }
 function normalizeOrgRole(role: string | undefined): string | undefined {
@@ -96,7 +97,7 @@ export function isAuthenticationConfigured(env: Env): boolean {
 }
 
 export async function authenticate(request: Request, env: Env): Promise<AuthContext> {
-  const config = authConfig(env);
+  const config = authConfig(env, request);
   const token = readSessionToken(request);
   const parts = token.split(".");
   if (parts.length !== 3) throw new HttpError(401, "Invalid token");
