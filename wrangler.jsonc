@@ -45,6 +45,10 @@
     "MAX_SELECTED_SOURCES": "8",
     "MAX_QUERY_CHARS": "300",
     "ALLOWED_BROWSER_HOSTS": "zebrabyte.ro,zebrabyte.co.uk",
-    "EMAIL_FROM": "security@zebrabyte.ro"
+    "EMAIL_FROM": "security@zebrabyte.ro",
+    "PLAN_FREE_INVESTIGATIONS": "3",
+    "PLAN_PRO_INVESTIGATIONS": "100",
+    "PLAN_BUSINESS_INVESTIGATIONS": "1000",
+    "PLAN_ENTERPRISE_INVESTIGATIONS": "10000"
   }
 }
