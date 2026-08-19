@@ -76,7 +76,7 @@ export interface Env {
   AI_SEARCH?: unknown;
   ANALYTICS: AnalyticsEngineDataset;
   FLAGS?: FlagshipBinding;
-  EMAIL: EmailBinding;
+  EMAIL?: EmailBinding;
   STRIPE_SECRET_KEY?: SecretBinding;
   STRIPE_WEBHOOK_SECRET?: SecretBinding;
   ONION_SEARCH_ENGINES_JSON?: SecretBinding;
