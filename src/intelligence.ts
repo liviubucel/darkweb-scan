@@ -17,6 +17,7 @@ export async function persistEvidence(env: Env, orgId: string, investigationId: 
 }
 
 export async function indexSource(env: Env, orgId: string, investigationId: string, sourceId: string, source: ScrapedSource): Promise<void> {
+  if (!env.INTELLIGENCE_INDEX) return;
   const text = `${source.title}\n${source.text}`.slice(0, 12_000);
   const embedding = (await env.AI.run("@cf/baai/bge-base-en-v1.5", { text: [text], pooling: "cls" })) as { data?: number[][] };
   const values = embedding.data?.[0]; if (!values || values.length !== 768) return;
