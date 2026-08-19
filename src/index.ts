@@ -19,10 +19,11 @@ import {
 import { InvestigationWorkflow } from "./workflow";
 import { browserMarkdown, validateClearWebUrl } from "./enrichment";
 import { askTenantKnowledge, deleteInvestigationKnowledge } from "./knowledge";
+import { consumeMonitoring, createWatchlist, deleteWatchlist, enqueueDueMonitoring, listWatchlists } from "./monitoring";
 import { consumeNotifications } from "./notifications";
 import { TorCollector } from "./container";
 import { HttpError, json, normalizeQuery, readJson, safeId, withSecurityHeaders } from "./security";
-import type { Env, InvestigationRequest, InvestigationWorkflowPayload, Plan } from "./types";
+import type { Env, InvestigationRequest, InvestigationWorkflowPayload, MonitoringJob, NotificationJob, Plan, QueueJob, WatchlistInput } from "./types";
 
 export { InvestigationWorkflow, TorCollector };
 
@@ -109,6 +110,29 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     return json(result);
   }
 
+  if (request.method === "GET" && url.pathname === "/api/watchlists") {
+    return json({ items: await listWatchlists(env, auth.orgId) });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/watchlists") {
+    const featureEnabled = await env.FLAGS.getBooleanValue("monitoring", true, { userId: auth.userId, orgId: auth.orgId, plan });
+    if (!featureEnabled) throw new HttpError(503, "Monitoring is temporarily unavailable");
+    const body = await readJson<WatchlistInput>(request, 4_096);
+    const watchlist = await createWatchlist(env, auth, plan, body);
+    track(env, "watchlist_created", auth.orgId, plan, [watchlist.interval_hours]);
+    return json(watchlist, 201);
+  }
+
+  const watchlistMatch = url.pathname.match(/^\/api\/watchlists\/([a-zA-Z0-9_-]{8,96})$/);
+  if (request.method === "DELETE" && watchlistMatch?.[1]) {
+    const id = watchlistMatch[1];
+    if (!safeId(id)) throw new HttpError(400, "Invalid watchlist id");
+    const deleted = await deleteWatchlist(env, auth, id);
+    if (!deleted) throw new HttpError(404, "Watchlist not found");
+    track(env, "watchlist_deleted", auth.orgId, plan);
+    return new Response(null, { status: 204 });
+  }
+
   if (request.method === "GET" && url.pathname === "/api/investigations") {
     const limit = boundedInteger(url.searchParams.get("limit"), 25, 1, 50);
     const offset = boundedInteger(url.searchParams.get("offset"), 0, 0, 5_000);
@@ -121,7 +145,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     const query = normalizeQuery(body.query, Number(env.MAX_QUERY_CHARS) || 300);
     const requestedProfile = body.profile ?? "general";
     const profile: NonNullable<InvestigationRequest["profile"]> = ["general", "identity", "corporate", "ransomware"].includes(requestedProfile) ? requestedProfile : "general";
-    const featureEnabled = await env.FLAGS.getBooleanValue("investigations", true, { targetingKey: auth.orgId, plan, userId: auth.userId });
+    const featureEnabled = await env.FLAGS.getBooleanValue("investigations", true, { userId: auth.userId, orgId: auth.orgId, plan });
     if (!featureEnabled) throw new HttpError(503, "Investigations are temporarily unavailable");
 
     const quota = await consumeInvestigationQuota(env, auth.orgId, plan);
@@ -193,7 +217,18 @@ export default {
       return json({ error: "Internal server error" }, 500);
     }
   },
-  async queue(batch: MessageBatch<import("./types").NotificationJob>, env: Env): Promise<void> {
-    await consumeNotifications(batch, env);
+  async queue(batch: MessageBatch<QueueJob>, env: Env): Promise<void> {
+    if (batch.queue === "zebrabyte-darkweb-monitoring") {
+      await consumeMonitoring(batch as MessageBatch<MonitoringJob>, env);
+      return;
+    }
+    if (batch.queue === "zebrabyte-darkweb-notifications") {
+      await consumeNotifications(batch as MessageBatch<NotificationJob>, env);
+      return;
+    }
+    batch.ackAll();
+  },
+  async scheduled(_event: ScheduledController, env: Env): Promise<void> {
+    await enqueueDueMonitoring(env);
   },
 } satisfies ExportedHandler<Env>;
