@@ -31,7 +31,7 @@
     ]
   },
   "workflows": [{ "name": "zebrabyte-darkweb-investigation", "binding": "INVESTIGATION_WORKFLOW", "class_name": "InvestigationWorkflow", "limits": { "steps": 10000 } }],
-  "containers": [{ "class_name": "TorCollector", "image": "./Dockerfile", "max_instances": 1, "instance_type": "lite" }],
+  "containers": [{ "name": "zebrabyte-darkweb-scan-darkwebcontainer", "class_name": "TorCollector", "image": "./Dockerfile", "max_instances": 1, "instance_type": "lite" }],
   "durable_objects": { "bindings": [{ "name": "TOR_COLLECTOR", "class_name": "TorCollector" }] },
   "exports": {
     "DarkwebContainer": { "type": "durable-object", "state": "renamed", "renamed_to": "TorCollector" },
