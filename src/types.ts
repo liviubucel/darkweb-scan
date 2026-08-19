@@ -51,6 +51,20 @@ export interface WatchlistInput {
   profile?: InvestigationProfile;
 }
 
+export interface FlagshipBinding {
+  getBooleanValue(key: string, defaultValue: boolean, context?: Record<string, unknown>): Promise<boolean>;
+}
+
+export interface EmailBinding {
+  send(message: {
+    to: string;
+    from: string | { email: string; name?: string };
+    subject: string;
+    text?: string;
+    html?: string;
+  }): Promise<{ messageId: string }>;
+}
+
 export interface Env {
   ASSETS: Fetcher;
   AI: Ai;
@@ -59,18 +73,10 @@ export interface Env {
   CACHE: KVNamespace;
   EVIDENCE: R2Bucket;
   INTELLIGENCE_INDEX?: VectorizeIndex;
-  AI_SEARCH: unknown;
+  AI_SEARCH?: unknown;
   ANALYTICS: AnalyticsEngineDataset;
-  FLAGS: { getBooleanValue(key: string, defaultValue: boolean, context?: Record<string, unknown>): Promise<boolean> };
-  EMAIL: {
-    send(message: {
-      to: string;
-      from: string | { email: string; name?: string };
-      subject: string;
-      text?: string;
-      html?: string;
-    }): Promise<{ messageId: string }>;
-  };
+  FLAGS?: FlagshipBinding;
+  EMAIL: EmailBinding;
   STRIPE_SECRET_KEY?: SecretBinding;
   STRIPE_WEBHOOK_SECRET?: SecretBinding;
   ONION_SEARCH_ENGINES_JSON?: SecretBinding;
@@ -82,13 +88,13 @@ export interface Env {
   TOR_COLLECTOR: DurableObjectNamespace;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   APP_NAME: string;
-  APP_ORIGIN: string;
-  CLERK_ISSUER: string;
-  CLERK_JWKS_URL: string;
-  CLERK_AUDIENCE: string;
-  CLERK_AUTHORIZED_PARTIES: string;
-  STRIPE_PRICE_PRO: string;
-  STRIPE_PRICE_BUSINESS: string;
+  APP_ORIGIN?: string;
+  CLERK_ISSUER?: string;
+  CLERK_JWKS_URL?: string;
+  CLERK_AUDIENCE?: string;
+  CLERK_AUTHORIZED_PARTIES?: string;
+  STRIPE_PRICE_PRO?: string;
+  STRIPE_PRICE_BUSINESS?: string;
   EVIDENCE_RETENTION_DAYS: string;
   MAX_SELECTED_SOURCES: string;
   MAX_QUERY_CHARS: string;
