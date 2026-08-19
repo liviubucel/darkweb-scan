@@ -62,26 +62,31 @@ async function ensureInvestigation(env: Env, orgId: string, id: string) {
 
 async function handleApi(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
+  await ensureDatabase(env);
+
   if (request.method === "GET" && url.pathname === "/api/health") {
+    const authentication = isAuthenticationConfigured(env);
+    const onionSearchConfigBound = Boolean(env.ONION_SEARCH_ENGINES_JSON);
     return json({
       ok: true,
+      ready: authentication && onionSearchConfigBound,
       service: env.APP_NAME,
       version: env.CF_VERSION_METADATA.id,
       time: new Date().toISOString(),
       configuration: {
-        authentication: isAuthenticationConfigured(env),
+        database: true,
+        authentication,
+        onionSearchConfigBound,
         stripePricing: configured(env.STRIPE_PRICE_PRO) || configured(env.STRIPE_PRICE_BUSINESS),
         stripeSecretBound: Boolean(env.STRIPE_SECRET_KEY),
         stripeWebhookSecretBound: Boolean(env.STRIPE_WEBHOOK_SECRET),
-        onionSearchConfigBound: Boolean(env.ONION_SEARCH_ENGINES_JSON),
         vectorize: Boolean(env.INTELLIGENCE_INDEX),
         aiSearch: Boolean(env.AI_SEARCH),
         flagship: Boolean(env.FLAGS),
+        email: Boolean(env.EMAIL),
       },
     });
   }
-
-  await ensureDatabase(env);
 
   if (request.method === "POST" && url.pathname === "/api/stripe/webhook") {
     return handleStripeWebhook(request, env);
