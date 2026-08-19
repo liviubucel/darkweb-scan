@@ -16,11 +16,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install --ignore-scripts
-      - run: npm run typecheck
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.2.15"
+      - run: bun install
+      - run: bun run typecheck
       - name: Validate Wrangler configuration and bundle
-        run: npm run deploy:dry
-      - run: npm audit --audit-level=high
+        run: bun run deploy:dry
+      - run: bun audit --audit-level=high
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -44,7 +47,7 @@ jobs:
       - name: Reject pre-reset project markers
         shell: bash
         run: |
-          if git grep -nEi '(robin|apurvsg|apurvsinghgautam|vercel|railway|streamlit|netlify)' -- ':!package-lock.json' ':!.github/workflows/security.yml'; then
+          if git grep -nEi '(robin|apurvsg|apurvsinghgautam|vercel|railway|streamlit|netlify)' -- ':!bun.lock' ':!.github/workflows/security.yml'; then
             echo "Pre-reset project/platform marker detected"
             exit 1
           fi
