@@ -1,14 +1,18 @@
 {
-  "name": "zebrabyte-darkweb-intelligence",
+  "name": "zebrabyte-darkweb-scan",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.2.15",
   "scripts": {
     "dev": "wrangler dev --remote",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
+    "check": "tsc --noEmit && wrangler deploy --dry-run --outdir dist",
     "cf-types": "wrangler types",
-    "deploy": "wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply DB --remote",
+    "deploy:worker": "wrangler deploy",
+    "deploy": "wrangler deploy && wrangler d1 migrations apply DB --remote",
     "deploy:dry": "wrangler deploy --dry-run --outdir dist"
   },
   "dependencies": {
