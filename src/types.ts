@@ -100,10 +100,12 @@ export interface Env {
 }
 
 export interface NotificationJob {
-  type: "investigation.completed" | "investigation.failed" | "exposure.detected";
+  type: "investigation.completed" | "investigation.failed" | "exposure.detected" | "monitoring.baseline";
   orgId: string;
   investigationId: string;
   recipient?: string;
+  newArtifactCount?: number;
+  newSourceCount?: number;
 }
 
 export interface MonitoringJob {
