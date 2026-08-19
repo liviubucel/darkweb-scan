@@ -13,6 +13,10 @@
     "cf-types": "wrangler types",
     "db:migrate": "wrangler d1 migrations apply DB --remote",
     "deploy:worker": "wrangler deploy",
+    "dashboard:install": "npm install --prefix apps/dashboard --no-audit --no-fund",
+    "dashboard:build": "npm --prefix apps/dashboard run build",
+    "dashboard:preview": "npm --prefix apps/dashboard run preview",
+    "dashboard:deploy": "npm --prefix apps/dashboard run deploy",
     "deploy": "wrangler deploy && wrangler d1 migrations apply DB --remote",
     "deploy:dry": "wrangler deploy --dry-run --outdir dist"
   },
