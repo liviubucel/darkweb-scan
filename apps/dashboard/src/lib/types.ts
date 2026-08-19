@@ -36,10 +36,28 @@ export interface Investigation {
 export interface InvestigationSource {
   id: string;
   ordinal: number;
-  title: string;
-  onion_url: string;
   content_sha256: string;
   fetched_at: string;
+}
+
+export interface ExposureFinding {
+  id: string;
+  asset: string;
+  profile: string;
+  risk_level: RiskLevel;
+  summary?: string | null;
+  evidence_count: number;
+  completed_at: string;
+  indicator_count: number;
+  email_indicators: number;
+  domain_indicators: number;
+}
+
+export interface ExposureStats {
+  exposures: number;
+  elevated: number;
+  scanning: number;
+  lastScanAt: string | null;
 }
 
 export interface Artifact {
@@ -73,7 +91,15 @@ export interface HealthState {
   configuration: {
     database: boolean;
     authentication: boolean;
-    onionSearchConfigBound: boolean;
+    inhouseDiscovery?: boolean;
+    discoveryReady?: boolean;
+    discoverySources?: number;
+    indexedPages?: number;
+    romanianPages?: number;
+    marketFocus?: string;
+    dailyCrawlBudget?: number;
+    todayCrawledPages?: number;
+    externalFallbackConfigured?: boolean;
     stripePricing: boolean;
     stripeSecretBound: boolean;
     stripeWebhookSecretBound: boolean;
