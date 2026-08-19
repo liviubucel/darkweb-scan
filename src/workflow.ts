@@ -5,6 +5,7 @@ import { rankHits, refineQuery, summarizeInvestigation } from "./ai";
 import { markStatus, setInvestigationKnowledgeItem } from "./db";
 import { indexSource, persistEvidence } from "./intelligence";
 import { indexInvestigationKnowledge } from "./knowledge";
+import { readRequiredSecret } from "./secrets";
 import type { Env, InvestigationWorkflowPayload, SearchHit, ScrapedSource } from "./types";
 import type { TorCollector } from "./container";
 
@@ -20,7 +21,7 @@ export class InvestigationWorkflow extends WorkflowEntrypoint<Env, Investigation
     await step.do("mark-running", async () => { await markStatus(this.env, payload.investigationId, payload.orgId, "running"); });
     try {
       const refinedQuery = await step.do("refine-query", async () => refineQuery(this.env, payload.query));
-      const searchEnginesJson = await step.do("load-collector-config", async () => this.env.ONION_SEARCH_ENGINES_JSON.get());
+      const searchEnginesJson = await step.do("load-collector-config", async () => readRequiredSecret(this.env.ONION_SEARCH_ENGINES_JSON, "Onion search engine configuration"));
       const hits = await step.do("search-onion-indexes", { retries: { limit: 2, delay: "10 seconds", backoff: "exponential" }, timeout: "3 minutes" }, async () => {
         const collector = getContainer<TorCollector>(this.env.TOR_COLLECTOR, TOR_COLLECTOR_ID);
         const raw = (await collector.runRequest("/search", { query: refinedQuery, limit: 60 }, searchEnginesJson)) as SearchResponse;
