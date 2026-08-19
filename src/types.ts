@@ -1,6 +1,7 @@
 export type Plan = "free" | "pro" | "business" | "enterprise";
 export type InvestigationProfile = "general" | "identity" | "corporate" | "ransomware";
 export type WatchlistType = "domain" | "email" | "brand" | "person" | "keyword";
+export type SecretBinding = string | { get(): Promise<string> };
 
 export interface AuthContext {
   userId: string;
@@ -57,7 +58,7 @@ export interface Env {
   DB: D1Database;
   CACHE: KVNamespace;
   EVIDENCE: R2Bucket;
-  INTELLIGENCE_INDEX: VectorizeIndex;
+  INTELLIGENCE_INDEX?: VectorizeIndex;
   AI_SEARCH: unknown;
   ANALYTICS: AnalyticsEngineDataset;
   FLAGS: { getBooleanValue(key: string, defaultValue: boolean, context?: Record<string, unknown>): Promise<boolean> };
@@ -70,9 +71,9 @@ export interface Env {
       html?: string;
     }): Promise<{ messageId: string }>;
   };
-  STRIPE_SECRET_KEY: { get(): Promise<string> };
-  STRIPE_WEBHOOK_SECRET: { get(): Promise<string> };
-  ONION_SEARCH_ENGINES_JSON: { get(): Promise<string> };
+  STRIPE_SECRET_KEY?: SecretBinding;
+  STRIPE_WEBHOOK_SECRET?: SecretBinding;
+  ONION_SEARCH_ENGINES_JSON?: SecretBinding;
   FREE_RATE_LIMITER: RateLimit;
   PAID_RATE_LIMITER: RateLimit;
   NOTIFICATIONS: Queue<NotificationJob>;
