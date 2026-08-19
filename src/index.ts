@@ -18,6 +18,15 @@ import {
   markStatus,
   refundInvestigationQuota,
 } from "./db";
+import {
+  addDiscoverySources,
+  assertDiscoveryAdmin,
+  consumeDiscovery,
+  disableDiscoverySource,
+  enqueueDueDiscovery,
+  getDiscoveryStatus,
+  listDiscoverySources,
+} from "./discovery";
 import { InvestigationWorkflow } from "./workflow";
 import { browserMarkdown, validateClearWebUrl } from "./enrichment";
 import { askTenantKnowledge, deleteInvestigationKnowledge } from "./knowledge";
@@ -26,7 +35,18 @@ import { consumeNotifications } from "./notifications";
 import { enforceEvidenceRetention } from "./retention";
 import { TorCollector } from "./container";
 import { HttpError, json, normalizeQuery, readJson, safeId, withSecurityHeaders } from "./security";
-import type { Env, InvestigationRequest, InvestigationWorkflowPayload, MonitoringJob, NotificationJob, Plan, QueueJob, WatchlistInput } from "./types";
+import type {
+  DiscoveryJob,
+  DiscoverySourceInput,
+  Env,
+  InvestigationRequest,
+  InvestigationWorkflowPayload,
+  MonitoringJob,
+  NotificationJob,
+  Plan,
+  QueueJob,
+  WatchlistInput,
+} from "./types";
 
 export { InvestigationWorkflow, TorCollector };
 
@@ -66,17 +86,26 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "GET" && url.pathname === "/api/health") {
     const authentication = isAuthenticationConfigured(env);
-    const onionSearchConfigBound = Boolean(env.ONION_SEARCH_ENGINES_JSON);
+    const discovery = await getDiscoveryStatus(env);
+    const discoveryReady = discovery.enabledSources > 0;
     return json({
       ok: true,
-      ready: authentication && onionSearchConfigBound,
+      ready: authentication && discoveryReady,
       service: env.APP_NAME,
       version: env.CF_VERSION_METADATA.id,
       time: new Date().toISOString(),
       configuration: {
         database: true,
         authentication,
-        onionSearchConfigBound,
+        inhouseDiscovery: true,
+        discoveryReady,
+        discoverySources: discovery.enabledSources,
+        indexedPages: discovery.indexedPages,
+        romanianPages: discovery.romanianPages,
+        marketFocus: env.MARKET_FOCUS ?? "GLOBAL",
+        dailyCrawlBudget: discovery.dailyBudget,
+        todayCrawledPages: discovery.todayFetched,
+        externalFallbackConfigured: configured(env.FALLBACK_DISCOVERY_URL) && Boolean(env.FALLBACK_DISCOVERY_API_KEY),
         stripePricing: configured(env.STRIPE_PRICE_PRO) || configured(env.STRIPE_PRICE_BUSINESS),
         stripeSecretBound: Boolean(env.STRIPE_SECRET_KEY),
         stripeWebhookSecretBound: Boolean(env.STRIPE_WEBHOOK_SECRET),
@@ -130,6 +159,46 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     const markdown = await browserMarkdown(env, target);
     await track(env, "browser_enrichment", auth.orgId, plan, [markdown.length]);
     return json({ url: target, markdown });
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/discovery/status") {
+    return json(await getDiscoveryStatus(env));
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/discovery/sources") {
+    assertDiscoveryAdmin(auth);
+    const limit = boundedInteger(url.searchParams.get("limit"), 50, 1, 100);
+    const offset = boundedInteger(url.searchParams.get("offset"), 0, 0, 50_000);
+    const items = await listDiscoverySources(env, limit, offset);
+    return json({ items, pagination: { limit, offset, nextOffset: items.length === limit ? offset + limit : null } });
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/discovery/sources") {
+    assertDiscoveryAdmin(auth);
+    const body = await readJson<{ items?: unknown }>(request, 64_000);
+    if (!Array.isArray(body.items)) throw new HttpError(400, "items must be an array");
+    const result = await addDiscoverySources(env, auth, body.items as DiscoverySourceInput[]);
+    const queued = await enqueueDueDiscovery(env, true);
+    await track(env, "discovery_seeds_added", auth.orgId, plan, [result.added, result.existing, queued]);
+    return json({ ...result, queued }, 201);
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/discovery/crawl") {
+    assertDiscoveryAdmin(auth);
+    const queued = await enqueueDueDiscovery(env, true);
+    await track(env, "discovery_refresh_requested", auth.orgId, plan, [queued]);
+    return json({ queued }, 202);
+  }
+
+  const discoverySourceMatch = url.pathname.match(/^\/api\/discovery\/sources\/([a-zA-Z0-9_-]{8,96})$/);
+  if (request.method === "DELETE" && discoverySourceMatch?.[1]) {
+    assertDiscoveryAdmin(auth);
+    const id = discoverySourceMatch[1];
+    if (!safeId(id)) throw new HttpError(400, "Invalid discovery source id");
+    const disabled = await disableDiscoverySource(env, auth, id);
+    if (!disabled) throw new HttpError(404, "Discovery source not found");
+    await track(env, "discovery_source_disabled", auth.orgId, plan);
+    return new Response(null, { status: 204 });
   }
 
   if (request.method === "POST" && url.pathname === "/api/intelligence/correlate") {
@@ -251,12 +320,16 @@ export default {
       return withSecurityHeaders(await env.ASSETS.fetch(request));
     } catch (error) {
       if (error instanceof HttpError) return json({ error: error.message }, error.status);
-      console.error("request_failed", error instanceof Error ? error.name : "unknown");
+      console.error("request_failed", error instanceof Error ? { name: error.name, message: error.message, stack: error.stack?.slice(0, 1_500) } : { name: "unknown" });
       return json({ error: "Internal server error" }, 500);
     }
   },
   async queue(batch: MessageBatch<QueueJob>, env: Env): Promise<void> {
     await ensureDatabase(env);
+    if (batch.queue === "zebrabyte-darkweb-discovery") {
+      await consumeDiscovery(batch as unknown as MessageBatch<DiscoveryJob>, env);
+      return;
+    }
     if (batch.queue === "zebrabyte-darkweb-monitoring") {
       await consumeMonitoring(batch as unknown as MessageBatch<MonitoringJob>, env);
       return;
@@ -271,6 +344,7 @@ export default {
     await ensureDatabase(env);
     await Promise.all([
       enqueueDueMonitoring(env),
+      enqueueDueDiscovery(env),
       enforceEvidenceRetention(env),
     ]);
   },
