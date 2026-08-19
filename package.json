@@ -5,6 +5,7 @@
   "type": "module",
   "packageManager": "bun@1.2.15",
   "scripts": {
+    "postinstall": "node scripts/prepare-cloudflare-config.mjs",
     "dev": "wrangler dev --remote",
     "build": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
