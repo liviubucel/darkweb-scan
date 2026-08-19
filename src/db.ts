@@ -123,7 +123,9 @@ export async function getInvestigation(env: Env, orgId: string, id: string) {
 }
 
 export async function listInvestigationSources(env: Env, orgId: string, investigationId: string) {
-  const result = await env.DB.prepare(`SELECT id, ordinal, title, onion_url, content_sha256, fetched_at FROM investigation_sources WHERE investigation_id = ?1 AND org_id = ?2 ORDER BY ordinal ASC`).bind(investigationId, orgId).all();
+  // Customer-facing evidence intentionally omits the collection URL and source title.
+  // The source location remains in D1/R2 for ZebraByte internal verification and audit.
+  const result = await env.DB.prepare(`SELECT id, ordinal, content_sha256, fetched_at FROM investigation_sources WHERE investigation_id = ?1 AND org_id = ?2 ORDER BY ordinal ASC`).bind(investigationId, orgId).all();
   return result.results;
 }
 
