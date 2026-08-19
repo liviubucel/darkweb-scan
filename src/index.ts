@@ -75,13 +75,13 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if (request.method === "POST" && url.pathname === "/api/billing/checkout") {
     const body = await readJson<{ plan?: unknown }>(request, 2_048);
     const session = await createCheckout(env, auth, body.plan);
-    track(env, "billing_checkout_created", auth.orgId, plan);
+    await track(env, "billing_checkout_created", auth.orgId, plan);
     return json(session, 201);
   }
 
   if (request.method === "POST" && url.pathname === "/api/billing/portal") {
     const portal = await createBillingPortal(env, auth);
-    track(env, "billing_portal_created", auth.orgId, plan);
+    await track(env, "billing_portal_created", auth.orgId, plan);
     return json(portal, 201);
   }
 
@@ -90,7 +90,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     const body = await readJson<{ url?: unknown }>(request, 4_096);
     const target = validateClearWebUrl(body.url, env);
     const markdown = await browserMarkdown(env, target);
-    track(env, "browser_enrichment", auth.orgId, plan, [markdown.length]);
+    await track(env, "browser_enrichment", auth.orgId, plan, [markdown.length]);
     return json({ url: target, markdown });
   }
 
@@ -98,7 +98,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (plan === "free") throw new HttpError(403, "Intelligence correlation requires a paid plan");
     const body = await readJson<{ query?: unknown; topK?: unknown }>(request, 8_192);
     const result = await correlateIntelligence(env, auth.orgId, body.query, body.topK);
-    track(env, "intelligence_correlation", auth.orgId, plan, [result.matches.length]);
+    await track(env, "intelligence_correlation", auth.orgId, plan, [result.matches.length]);
     return json(result);
   }
 
@@ -106,7 +106,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (plan === "free") throw new HttpError(403, "Investigation knowledge search requires a paid plan");
     const body = await readJson<{ query?: unknown }>(request, 8_192);
     const result = await askTenantKnowledge(env, auth.orgId, body.query);
-    track(env, "intelligence_ask", auth.orgId, plan, [result.contextCount]);
+    await track(env, "intelligence_ask", auth.orgId, plan, [result.contextCount]);
     return json(result);
   }
 
@@ -119,7 +119,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (!featureEnabled) throw new HttpError(503, "Monitoring is temporarily unavailable");
     const body = await readJson<WatchlistInput>(request, 4_096);
     const watchlist = await createWatchlist(env, auth, plan, body);
-    track(env, "watchlist_created", auth.orgId, plan, [watchlist.interval_hours]);
+    await track(env, "watchlist_created", auth.orgId, plan, [watchlist.interval_hours]);
     return json(watchlist, 201);
   }
 
@@ -129,7 +129,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     if (!safeId(id)) throw new HttpError(400, "Invalid watchlist id");
     const deleted = await deleteWatchlist(env, auth, id);
     if (!deleted) throw new HttpError(404, "Watchlist not found");
-    track(env, "watchlist_deleted", auth.orgId, plan);
+    await track(env, "watchlist_deleted", auth.orgId, plan);
     return new Response(null, { status: 204 });
   }
 
@@ -159,7 +159,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       if (id) await markStatus(env, id, auth.orgId, "failed", "Workflow could not be started").catch(() => undefined);
       throw error;
     }
-    track(env, "investigation_created", auth.orgId, plan, [query.length, quota.used, quota.limit]);
+    await track(env, "investigation_created", auth.orgId, plan, [query.length, quota.used, quota.limit]);
     return json({ id, status: "queued", quota }, 202);
   }
 
@@ -197,7 +197,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       if (targets.aiSearchItemId) await deleteInvestigationKnowledge(env, auth.orgId, targets.aiSearchItemId);
       const deleted = await deleteInvestigationRecords(env, auth, id);
       if (!deleted) throw new HttpError(404, "Investigation not found");
-      track(env, "investigation_deleted", auth.orgId, plan, [targets.objectKeys.length, targets.sourceIds.length]);
+      await track(env, "investigation_deleted", auth.orgId, plan, [targets.objectKeys.length, targets.sourceIds.length]);
       return new Response(null, { status: 204 });
     }
   }
@@ -219,11 +219,11 @@ export default {
   },
   async queue(batch: MessageBatch<QueueJob>, env: Env): Promise<void> {
     if (batch.queue === "zebrabyte-darkweb-monitoring") {
-      await consumeMonitoring(batch as MessageBatch<MonitoringJob>, env);
+      await consumeMonitoring(batch as unknown as MessageBatch<MonitoringJob>, env);
       return;
     }
     if (batch.queue === "zebrabyte-darkweb-notifications") {
-      await consumeNotifications(batch as MessageBatch<NotificationJob>, env);
+      await consumeNotifications(batch as unknown as MessageBatch<NotificationJob>, env);
       return;
     }
     batch.ackAll();
