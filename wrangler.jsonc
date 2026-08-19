@@ -13,7 +13,7 @@
   "d1_databases": [{ "binding": "DB" }],
   "kv_namespaces": [{ "binding": "CACHE", "id": "9ee928c8c1e34301afbb4847be531404" }],
   "r2_buckets": [{ "binding": "EVIDENCE" }],
-  "ai_search_namespaces": [{ "binding": "AI_SEARCH" }],
+  "ai_search_namespaces": [{ "binding": "AI_SEARCH", "namespace": "default", "remote": true }],
   "analytics_engine_datasets": [{ "binding": "ANALYTICS", "dataset": "zebrabyte_darkweb_usage" }],
   "flagship": [{ "binding": "FLAGS" }],
   "send_email": [{ "name": "EMAIL", "remote": true }],
