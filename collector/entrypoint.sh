@@ -22,4 +22,4 @@ until grep -q "Bootstrapped 100%" /var/log/tor/notices.log 2>/dev/null; do
 done
 
 exec su -s /bin/sh nobody -c \
-  "uvicorn collector.app:app --host 0.0.0.0 --port 8080 --workers 1 --no-access-log --proxy-headers=false"
+  "uvicorn collector.app:app --host 0.0.0.0 --port 8080 --workers 1 --no-access-log --no-proxy-headers"
