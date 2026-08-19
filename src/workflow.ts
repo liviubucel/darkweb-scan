@@ -2,8 +2,9 @@ import { getContainer } from "@cloudflare/containers";
 import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloudflare:workers";
 import { extractArtifacts } from "./artifacts";
 import { rankHits, refineQuery, summarizeInvestigation } from "./ai";
-import { markStatus } from "./db";
+import { markStatus, setInvestigationKnowledgeItem } from "./db";
 import { indexSource, persistEvidence } from "./intelligence";
+import { indexInvestigationKnowledge } from "./knowledge";
 import type { Env, InvestigationWorkflowPayload, SearchHit, ScrapedSource } from "./types";
 import type { TorCollector } from "./container";
 
@@ -47,6 +48,16 @@ export class InvestigationWorkflow extends WorkflowEntrypoint<Env, Investigation
         statements.push(this.env.DB.prepare(`UPDATE investigations SET status = 'completed', summary = ?1, risk_level = ?2, source_count = ?3, updated_at = ?4, completed_at = ?4 WHERE id = ?5 AND org_id = ?6`).bind(analysis.summary, analysis.riskLevel, sources.length, now, payload.investigationId, payload.orgId));
         if (statements.length) await this.env.DB.batch(statements);
       });
+
+      try {
+        const itemId = await step.do("index-investigation-knowledge", async () => indexInvestigationKnowledge(this.env, payload.orgId, payload.investigationId, payload.query, analysis.riskLevel, analysis.summary, sources));
+        if (itemId) {
+          await step.do("persist-knowledge-reference", async () => setInvestigationKnowledgeItem(this.env, payload.orgId, payload.investigationId, itemId));
+        }
+      } catch {
+        // AI Search is a secondary retrieval layer. Core investigation evidence remains in D1/R2.
+      }
+
       await step.do("notify-completion", async () => { await this.env.NOTIFICATIONS.send({ type: "investigation.completed", orgId: payload.orgId, investigationId: payload.investigationId }); });
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 500) : "Investigation failed";
