@@ -46,6 +46,13 @@ export async function consumeNotifications(batch: MessageBatch<NotificationJob>,
       const existing = await env.DB.prepare("SELECT status FROM alerts WHERE id = ?1 AND org_id = ?2 LIMIT 1").bind(id, job.orgId).first<{ status: string }>();
       if (existing?.status === "sent") { message.ack(); continue; }
 
+      if (!env.EMAIL) {
+        const createdAt = new Date().toISOString();
+        await env.DB.prepare(`INSERT INTO alerts (id, org_id, investigation_id, type, status, destination, created_at) VALUES (?1, ?2, ?3, ?4, 'email_not_configured', ?5, ?6) ON CONFLICT(id) DO UPDATE SET status = 'email_not_configured', destination = excluded.destination`).bind(id, job.orgId, job.investigationId, job.type, destination.security_email, createdAt).run();
+        message.ack();
+        continue;
+      }
+
       const createdAt = new Date().toISOString();
       await env.DB.prepare(`INSERT INTO alerts (id, org_id, investigation_id, type, status, destination, created_at) VALUES (?1, ?2, ?3, ?4, 'sending', ?5, ?6) ON CONFLICT(id) DO UPDATE SET status = 'sending', destination = excluded.destination`).bind(id, job.orgId, job.investigationId, job.type, destination.security_email, createdAt).run();
 
