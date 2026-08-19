@@ -146,7 +146,7 @@
                 <label class="field"><span>Interval</span><select id="watch-interval"><option value="24">Every 24 hours</option><option value="12">Every 12 hours</option><option value="6">Every 6 hours</option><option value="1">Every hour</option></select></label>
                 <label class="field"><span>Profile</span><select id="watch-profile"><option value="corporate">Corporate exposure</option><option value="identity">Identity exposure</option><option value="general">General intelligence</option><option value="ransomware">Ransomware signals</option></select></label>
                 <button class="button primary" id="create-watchlist" type="submit">Create watchlist</button>
-                <p class="muted-small">Continuous monitoring is available on paid plans. Minimum interval is enforced by your plan.</p>
+                <p class="muted-small">Billing enforcement is disabled during product validation; monitoring can be tested before launch.</p>
               </form>
             </section>
             <section class="panel watch-list-panel"><div class="panel-head"><div><p class="panel-kicker">ACTIVE MONITORING</p><h2>Targets</h2></div><button class="text-button" id="refresh-watchlists" type="button">Refresh</button></div><div id="watchlists-list" class="watch-list"><div class="empty compact">No watchlists loaded.</div></div></section>
@@ -191,11 +191,12 @@
   </div>
 
   <div class="auth-gate hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
-    <div class="auth-card"><span class="brand-mark large-mark">Z</span><p class="eyebrow">ZEBRABYTE SECURITY</p><h2 id="auth-title">Authentication required</h2><p id="auth-message">Sign in with your ZebraByte account to access investigations.</p><div class="auth-actions"><button class="button primary" id="auth-retry" type="button">Check session</button><a class="button secondary" href="/">Back to overview</a></div><small id="auth-detail"></small></div>
+    <div class="auth-card"><span class="brand-mark large-mark">Z</span><p class="eyebrow">ZEBRABYTE SECURITY</p><h2 id="auth-title">Authentication required</h2><p id="auth-message">Sign in with your ZebraByte account to access investigations.</p><div class="auth-actions"><button class="button primary" id="auth-retry" type="button">Sign in</button><a class="button secondary" href="/">Back to overview</a></div><small id="auth-detail">You will be redirected to the ZebraByte Account Portal and returned here automatically.</small></div>
   </div>
 
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
   <div class="mobile-shade" id="mobile-shade"></div>
+  <script src="/app/auth-bootstrap.js" defer></script>
   <script src="/app/app.js" defer></script>
   <script src="/app/sources.js" defer></script>
 </body>
