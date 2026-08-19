@@ -15,6 +15,11 @@ CREATE TABLE subscriptions (
   current_period_end TEXT,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE billing_events (
+  event_id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  processed_at TEXT NOT NULL
+);
 CREATE TABLE investigations (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
