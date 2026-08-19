@@ -19,9 +19,11 @@ Wrangler automatic provisioning is used for supported resources where the config
 
 Workers AI, Browser Run, Analytics Engine, Workflows, Rate Limiter, Durable Objects, Containers and Version Metadata are declared directly in `wrangler.jsonc`.
 
+For a deployment executed directly with Wrangler, newly created identifiers can be written back to the local config. For Git-connected deployments from the Cloudflare dashboard, Cloudflare can provision the resources but does not write the generated identifiers back into this Git repository. After the first successful production deployment, record the real production D1 database ID, R2 bucket name and Flagship app ID from the dashboard and pin those identifiers in `wrangler.jsonc` where the binding supports them. This makes the repository the durable source of truth instead of depending indefinitely on dashboard-only generated state.
+
 The D1 binding points at `migrations/`. The Worker also runs an idempotent schema bootstrap once per runtime isolate, which means a newly auto-provisioned D1 database can serve requests immediately and a partially initialized schema can heal missing tables/indexes.
 
-Formal migration command:
+After the production D1 resource has been provisioned and pinned, record/apply the formal migration with:
 
 ```bash
 bun run db:migrate
