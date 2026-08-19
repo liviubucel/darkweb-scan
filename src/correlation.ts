@@ -4,6 +4,7 @@ import { HttpError, normalizeQuery } from "./security";
 interface EmbeddingResponse { data?: number[][] }
 
 export async function correlateIntelligence(env: Env, orgId: string, rawQuery: unknown, rawTopK: unknown): Promise<{ query: string; matches: Array<{ id: string; score: number; metadata: Record<string, unknown> | null }> }> {
+  if (!env.INTELLIGENCE_INDEX) throw new HttpError(503, "Intelligence correlation is not configured yet");
   const query = normalizeQuery(rawQuery, 1_000);
   const requested = typeof rawTopK === "number" ? rawTopK : Number(rawTopK ?? 10);
   const topK = Number.isFinite(requested) ? Math.max(1, Math.min(20, Math.floor(requested))) : 10;
