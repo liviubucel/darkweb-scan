@@ -17,7 +17,6 @@
   "ai_search_namespaces": [{ "binding": "AI_SEARCH", "namespace": "default", "remote": true }],
   "analytics_engine_datasets": [{ "binding": "ANALYTICS", "dataset": "zebrabyte_darkweb_usage" }],
   "flagship": [{ "binding": "FLAGS" }],
-  "send_email": [{ "name": "EMAIL", "remote": true }],
   "ratelimits": [
     { "name": "FREE_RATE_LIMITER", "namespace_id": "41001", "simple": { "limit": 10, "period": 60 } },
     { "name": "PAID_RATE_LIMITER", "namespace_id": "41002", "simple": { "limit": 120, "period": 60 } }
