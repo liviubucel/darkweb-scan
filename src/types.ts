@@ -97,6 +97,7 @@ export interface Env {
   STRIPE_WEBHOOK_SECRET?: SecretBinding;
   FALLBACK_DISCOVERY_API_KEY?: SecretBinding;
   ZBT_INTERNAL_SOURCE_CATALOG?: SecretBinding;
+  ZBT_INTERNAL_OPERATOR_IDS?: SecretBinding;
   FREE_RATE_LIMITER: RateLimit;
   PAID_RATE_LIMITER: RateLimit;
   NOTIFICATIONS: Queue<NotificationJob>;
