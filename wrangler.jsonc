@@ -11,7 +11,7 @@
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
   "ai": { "binding": "AI", "remote": true },
   "browser": { "binding": "BROWSER", "remote": true },
-  "d1_databases": [{ "binding": "DB", "migrations_dir": "migrations" }],
+  "d1_databases": [{ "binding": "DB", "database_name": "zebrabyte-darkweb-intelligence-prod", "migrations_dir": "migrations" }],
   "kv_namespaces": [{ "binding": "CACHE", "id": "9ee928c8c1e34301afbb4847be531404" }],
   "r2_buckets": [{ "binding": "EVIDENCE" }],
   "ai_search_namespaces": [{ "binding": "AI_SEARCH", "namespace": "default", "remote": true }],
@@ -34,7 +34,10 @@
   "workflows": [{ "name": "zebrabyte-darkweb-investigation", "binding": "INVESTIGATION_WORKFLOW", "class_name": "InvestigationWorkflow", "limits": { "steps": 10000 } }],
   "containers": [{ "class_name": "TorCollector", "image": "./Dockerfile", "max_instances": 1, "instance_type": "lite" }],
   "durable_objects": { "bindings": [{ "name": "TOR_COLLECTOR", "class_name": "TorCollector" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TorCollector"] }],
+  "exports": {
+    "DarkwebContainer": { "type": "durable-object", "state": "renamed", "renamed_to": "TorCollector" },
+    "TorCollector": { "type": "durable-object", "storage": "sqlite" }
+  },
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "vars": {
     "APP_NAME": "ZebraByte Dark Web Intelligence",
