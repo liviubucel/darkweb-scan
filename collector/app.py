@@ -26,9 +26,14 @@ MAX_TEXT_CHARS = 40_000
 MAX_SCRAPE_RESPONSE_BYTES = 500_000
 MAX_RESULTS = 40
 MAX_SCRAPE_URLS = 8
+MAX_DISCOVERED_LINKS = 20
 REQUEST_TIMEOUT = (8, 20)
 ALLOWED_PORTS = {None, 80, 443}
 ONION_V3 = re.compile(r"^[a-z2-7]{56}\.onion$", re.IGNORECASE)
+BLOCKED_BINARY_SUFFIXES = re.compile(
+    r"\.(?:7z|apk|bin|bz2|dmg|docx?|exe|gz|iso|jar|msi|pdf|rar|tar|tgz|xlsx?|zip)(?:$|[?#])",
+    re.IGNORECASE,
+)
 
 app = FastAPI(title="ZebraByte Tor Collector", docs_url=None, redoc_url=None, openapi_url=None)
 
@@ -91,6 +96,8 @@ def _validated_onion_url(raw: str) -> str:
         raise ValueError("invalid port") from exc
     if port not in ALLOWED_PORTS:
         raise ValueError("unsupported port")
+    if BLOCKED_BINARY_SUFFIXES.search(f"{parsed.path}?{parsed.query}"):
+        raise ValueError("binary/download urls are not crawlable")
     return parsed.geturl()
 
 
@@ -146,6 +153,31 @@ def _html_to_text(content: bytes, content_type: str) -> tuple[str, str]:
         if total >= MAX_TEXT_CHARS:
             break
     return title, "\n".join(lines)[:MAX_TEXT_CHARS]
+
+
+def _extract_onion_links(content: bytes, content_type: str, base_url: str) -> list[str]:
+    if content_type == "text/plain":
+        return []
+    soup = BeautifulSoup(content.decode("utf-8", errors="replace"), "html.parser")
+    links: list[str] = []
+    seen: set[str] = set()
+    for anchor in soup.find_all("a", href=True):
+        raw = str(anchor.get("href", "")).strip()
+        if not raw:
+            continue
+        try:
+            candidate = _validated_onion_url(urljoin(base_url, raw))
+        except ValueError:
+            continue
+        parsed = urlparse(candidate)
+        normalized = parsed._replace(fragment="").geturl()
+        if normalized in seen or normalized == base_url:
+            continue
+        seen.add(normalized)
+        links.append(normalized)
+        if len(links) >= MAX_DISCOVERED_LINKS:
+            break
+    return links
 
 
 def _engines() -> list[dict[str, str]]:
@@ -206,8 +238,8 @@ def _search_engine(engine: dict[str, str], query: str) -> list[dict[str, str]]:
     return _parse_search_html(content, final_url, engine["name"])
 
 
-def _bounded_sources(urls: list[str], completed: dict[str, dict[str, str]]) -> list[dict[str, str]]:
-    sources: list[dict[str, str]] = []
+def _bounded_sources(urls: list[str], completed: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    sources: list[dict[str, Any]] = []
     used = len(b'{"sources":[]}')
     for requested_url in urls:
         source = completed.get(requested_url)
@@ -220,7 +252,7 @@ def _bounded_sources(urls: list[str], completed: dict[str, dict[str, str]]) -> l
         remaining = MAX_SCRAPE_RESPONSE_BYTES - used - overhead
         if remaining <= 0:
             break
-        text_bytes = candidate.get("text", "").encode("utf-8")
+        text_bytes = str(candidate.get("text", "")).encode("utf-8")
         if len(text_bytes) > remaining:
             candidate["text"] = text_bytes[:remaining].decode("utf-8", errors="ignore")
         encoded_size = len(json.dumps(candidate, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) + 1
@@ -242,6 +274,7 @@ def health() -> dict[str, Any]:
             "searchEngines": MAX_SEARCH_ENGINES,
             "pageBytes": MAX_PAGE_BYTES,
             "scrapeUrls": MAX_SCRAPE_URLS,
+            "discoveredLinks": MAX_DISCOVERED_LINKS,
             "responseBytes": MAX_SCRAPE_RESPONSE_BYTES,
         },
     }
@@ -274,7 +307,7 @@ def search(request: SearchRequest) -> dict[str, Any]:
     return {"results": combined[: request.limit]}
 
 
-def _scrape_one(url: str) -> dict[str, str]:
+def _scrape_one(url: str) -> dict[str, Any]:
     validated = _validated_onion_url(url)
     content, content_type, final_url = _safe_get(validated)
     title, text = _html_to_text(content, content_type)
@@ -285,6 +318,8 @@ def _scrape_one(url: str) -> dict[str, str]:
         "contentType": content_type,
         "fetchedAt": datetime.now(timezone.utc).isoformat(),
         "sha256": hashlib.sha256(content).hexdigest(),
+        "bodyBytes": len(content),
+        "discoveredOnionUrls": _extract_onion_links(content, content_type, final_url),
     }
 
 
@@ -299,7 +334,7 @@ def scrape(request: ScrapeRequest) -> dict[str, Any]:
         if validated not in urls:
             urls.append(validated)
 
-    completed: dict[str, dict[str, str]] = {}
+    completed: dict[str, dict[str, Any]] = {}
     with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_FETCHES, len(urls))) as executor:
         futures = {executor.submit(_scrape_one, url): url for url in urls}
         for future in as_completed(futures):
