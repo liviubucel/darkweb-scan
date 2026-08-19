@@ -1,0 +1,7 @@
+.next/
+.open-next/
+node_modules/
+.env
+.env.*
+!.env.example
+.wrangler/

@@ -1,0 +1,2 @@
+import { UserProfile } from "@clerk/nextjs";
+export default function AccountPage() { return <div className="page-shell"><div className="page-header"><div><p className="page-eyebrow">Identity</p><h1 className="page-title">Account security</h1><p className="page-description">Manage authentication methods, active sessions and account security through Clerk.</p></div></div><div className="overflow-hidden rounded-lg border border-border bg-card p-2"><UserProfile routing="hash" /></div></div>; }

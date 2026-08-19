@@ -1,0 +1,2 @@
+import { OrganizationProfile } from "@clerk/nextjs";
+export default function OrganizationPage() { return <div className="page-shell"><div className="page-header"><div><p className="page-eyebrow">Organization</p><h1 className="page-title">Team & access</h1><p className="page-description">Manage organization membership, roles and security settings through Clerk.</p></div></div><div className="overflow-hidden rounded-lg border border-border bg-card p-2"><OrganizationProfile routing="hash" /></div></div>; }
