@@ -9,6 +9,6 @@ export async function readRequiredSecret(binding: SecretBinding | undefined, lab
     value = await binding.get();
   }
   const normalized = value.trim();
-  if (!normalized) throw new HttpError(503, `${label} is not configured`);
+  if (!normalized || normalized.startsWith("REPLACE_")) throw new HttpError(503, `${label} is not configured`);
   return normalized;
 }
