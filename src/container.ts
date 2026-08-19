@@ -20,8 +20,11 @@ export class TorCollector extends Container {
     try {
       await this.startAndWaitForPorts({
         ports: 8080,
-        startOptions: { envVars: { ONION_SEARCH_ENGINES_JSON: searchEnginesJson, COLLECTOR_MODE: "defensive" }, enableInternet: true },
-        cancellationOptions: { portReadyTimeoutMS: 90_000 },
+        startOptions: {
+          envVars: { ONION_SEARCH_ENGINES_JSON: searchEnginesJson, COLLECTOR_MODE: "defensive" },
+          enableInternet: true,
+        },
+        cancellationOptions: { portReadyTimeoutMS: 120_000 },
       });
       const response = await this.containerFetch(`http://localhost${path}`, {
         method: "POST",
