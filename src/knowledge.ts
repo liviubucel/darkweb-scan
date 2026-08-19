@@ -96,7 +96,7 @@ export async function askTenantKnowledge(env: Env, orgId: string, rawQuery: unkn
   }
 
   if (!chunks.length) return { answer: "No relevant investigation context was found.", contextCount: 0 };
-  const context = JSON.stringify(chunks).slice(0, 50_000);
+  const context = JSON.stringify(chunks).slice(0, 45_000);
   const response = await env.AI.run("@cf/meta/llama-3.3-70b-instruct-fp8-fast", {
     messages: [
       {
@@ -105,6 +105,8 @@ export async function askTenantKnowledge(env: Env, orgId: string, rawQuery: unkn
       },
       { role: "user", content: JSON.stringify({ question: query, indexedContext: context }) },
     ],
+    max_tokens: 1_200,
+    temperature: 0,
   });
   const answer = typeof response === "string"
     ? response
