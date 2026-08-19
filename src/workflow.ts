@@ -3,10 +3,11 @@ import { WorkflowEntrypoint, type WorkflowEvent, type WorkflowStep } from "cloud
 import { extractArtifacts } from "./artifacts";
 import { rankHits, refineQuery, summarizeInvestigation } from "./ai";
 import { markStatus, setInvestigationKnowledgeItem } from "./db";
+import { detectMonitoringDelta } from "./detection";
 import { indexSource, persistEvidence } from "./intelligence";
 import { indexInvestigationKnowledge } from "./knowledge";
 import { readRequiredSecret } from "./secrets";
-import type { Env, InvestigationWorkflowPayload, SearchHit, ScrapedSource } from "./types";
+import type { Env, InvestigationWorkflowPayload, NotificationJob, SearchHit, ScrapedSource } from "./types";
 import type { TorCollector } from "./container";
 
 interface SearchResponse { results: SearchHit[] }
@@ -59,10 +60,36 @@ export class InvestigationWorkflow extends WorkflowEntrypoint<Env, Investigation
         // AI Search is a secondary retrieval layer. Core investigation evidence remains in D1/R2.
       }
 
-      await step.do("notify-completion", async () => { await this.env.NOTIFICATIONS.send({ type: "investigation.completed", orgId: payload.orgId, investigationId: payload.investigationId }); });
+      const delta = await step.do("detect-monitoring-delta", async () => detectMonitoringDelta(this.env, payload.orgId, payload.investigationId));
+      let notification: NotificationJob | undefined;
+      if (!delta.isMonitoring) {
+        notification = { type: "investigation.completed", orgId: payload.orgId, investigationId: payload.investigationId };
+      } else if (!delta.hasBaseline) {
+        notification = { type: "monitoring.baseline", orgId: payload.orgId, investigationId: payload.investigationId };
+      } else if (delta.hasNewExposure) {
+        notification = {
+          type: "exposure.detected",
+          orgId: payload.orgId,
+          investigationId: payload.investigationId,
+          newArtifactCount: delta.newArtifactCount,
+          newSourceCount: delta.newSourceCount,
+        };
+      }
+
+      if (notification) {
+        const job = notification;
+        await step.do("notify-result", async () => { await this.env.NOTIFICATIONS.send(job); });
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message.slice(0, 500) : "Investigation failed";
       await step.do("mark-failed", async () => { await markStatus(this.env, payload.investigationId, payload.orgId, "failed", message); });
+      try {
+        await step.do("notify-failure", async () => {
+          await this.env.NOTIFICATIONS.send({ type: "investigation.failed", orgId: payload.orgId, investigationId: payload.investigationId });
+        });
+      } catch {
+        // Preserve the investigation error; notification delivery is handled independently.
+      }
       throw error;
     }
   }
