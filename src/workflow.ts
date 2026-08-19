@@ -11,6 +11,8 @@ import type { TorCollector } from "./container";
 interface SearchResponse { results: SearchHit[] }
 interface ScrapeResponse { sources: ScrapedSource[] }
 
+const TOR_COLLECTOR_ID = "zebrabyte-shared-tor-collector";
+
 export class InvestigationWorkflow extends WorkflowEntrypoint<Env, InvestigationWorkflowPayload> {
   override async run(event: WorkflowEvent<InvestigationWorkflowPayload>, step: WorkflowStep): Promise<void> {
     const payload = event.payload;
@@ -20,18 +22,16 @@ export class InvestigationWorkflow extends WorkflowEntrypoint<Env, Investigation
       const refinedQuery = await step.do("refine-query", async () => refineQuery(this.env, payload.query));
       const searchEnginesJson = await step.do("load-collector-config", async () => this.env.ONION_SEARCH_ENGINES_JSON.get());
       const hits = await step.do("search-onion-indexes", { retries: { limit: 2, delay: "10 seconds", backoff: "exponential" }, timeout: "3 minutes" }, async () => {
-        const collector = getContainer<TorCollector>(this.env.TOR_COLLECTOR, `investigation:${payload.investigationId}`);
+        const collector = getContainer<TorCollector>(this.env.TOR_COLLECTOR, TOR_COLLECTOR_ID);
         const raw = (await collector.runRequest("/search", { query: refinedQuery, limit: 60 }, searchEnginesJson)) as SearchResponse;
         return Array.isArray(raw.results) ? raw.results.slice(0, 60) : [];
       });
       const selected = await step.do("rank-search-results", async () => rankHits(this.env, payload.query, hits, maxSources));
       const sources = await step.do("scrape-selected-sources", { retries: { limit: 2, delay: "15 seconds", backoff: "exponential" }, timeout: "5 minutes" }, async () => {
         if (!selected.length) return [];
-        const collector = getContainer<TorCollector>(this.env.TOR_COLLECTOR, `investigation:${payload.investigationId}`);
-        try {
-          const raw = (await collector.runRequest("/scrape", { urls: selected.map((hit) => hit.url) }, searchEnginesJson)) as ScrapeResponse;
-          return Array.isArray(raw.sources) ? raw.sources.slice(0, maxSources) : [];
-        } finally { await collector.shutdown().catch(() => undefined); }
+        const collector = getContainer<TorCollector>(this.env.TOR_COLLECTOR, TOR_COLLECTOR_ID);
+        const raw = (await collector.runRequest("/scrape", { urls: selected.map((hit) => hit.url) }, searchEnginesJson)) as ScrapeResponse;
+        return Array.isArray(raw.sources) ? raw.sources.slice(0, maxSources) : [];
       });
       const analysis = await step.do("analyze-grounded-evidence", async () => summarizeInvestigation(this.env, payload.query, sources));
       await step.do("persist-results", async () => {
