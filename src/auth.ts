@@ -2,7 +2,20 @@ import type { AuthContext, Env } from "./types";
 import { HttpError } from "./security";
 
 interface JwtHeader { alg?: string; kid?: string; typ?: string }
-interface JwtClaims { sub?: string; iss?: string; aud?: string | string[]; exp?: number; nbf?: number; sid?: string; org_id?: string; org_role?: string }
+interface ClerkV2Organization { id?: string; rol?: string; per?: string; slg?: string }
+interface JwtClaims {
+  sub?: string;
+  iss?: string;
+  aud?: string | string[];
+  azp?: string;
+  exp?: number;
+  nbf?: number;
+  sid?: string;
+  v?: number;
+  o?: ClerkV2Organization;
+  org_id?: string;
+  org_role?: string;
+}
 interface Jwk extends JsonWebKey { kid?: string }
 interface Jwks { keys: Jwk[] }
 
@@ -17,8 +30,17 @@ function audienceMatches(actual: string | string[] | undefined, expected: string
   if (typeof actual === "string") return actual === expected;
   return Array.isArray(actual) && actual.includes(expected);
 }
+function authorizedPartyMatches(actual: string | undefined, configured: string): boolean {
+  const allowed = configured.split(",").map((value) => value.trim()).filter(Boolean);
+  if (!allowed.length) return true;
+  return typeof actual === "string" && allowed.includes(actual);
+}
+function normalizeOrgRole(role: string | undefined): string | undefined {
+  if (!role) return undefined;
+  return role.startsWith("org:") ? role : `org:${role}`;
+}
 async function loadJwks(env: Env): Promise<Jwks> {
-  const cacheKey = "clerk:jwks:v1";
+  const cacheKey = "clerk:jwks:v2";
   const cached = await env.CACHE.get(cacheKey, "json");
   if (cached && typeof cached === "object" && "keys" in cached) return cached as Jwks;
   const url = new URL(env.CLERK_JWKS_URL);
@@ -50,11 +72,21 @@ export async function authenticate(request: Request, env: Env): Promise<AuthCont
   const signed = new TextEncoder().encode(`${encodedHeader}.${encodedClaims}`);
   const verified = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, decodeBase64Url(encodedSignature), signed);
   if (!verified) throw new HttpError(401, "Invalid signature");
+
   const now = Math.floor(Date.now() / 1000);
   if (!claims.exp || claims.exp <= now - 30) throw new HttpError(401, "Expired token");
   if (claims.nbf && claims.nbf > now + 30) throw new HttpError(401, "Token not active");
   if (claims.iss !== env.CLERK_ISSUER) throw new HttpError(401, "Invalid issuer");
   if (!audienceMatches(claims.aud, env.CLERK_AUDIENCE)) throw new HttpError(401, "Invalid audience");
+  if (!authorizedPartyMatches(claims.azp, env.CLERK_AUTHORIZED_PARTIES)) throw new HttpError(401, "Invalid authorized party");
   if (!claims.sub) throw new HttpError(401, "Missing subject");
-  return { userId: claims.sub, orgId: claims.org_id ?? `personal:${claims.sub}`, ...(claims.org_role ? { orgRole: claims.org_role } : {}), ...(claims.sid ? { sessionId: claims.sid } : {}) };
+
+  const organizationId = claims.o?.id ?? claims.org_id;
+  const organizationRole = normalizeOrgRole(claims.o?.rol ?? claims.org_role);
+  return {
+    userId: claims.sub,
+    orgId: organizationId ?? `personal:${claims.sub}`,
+    ...(organizationRole ? { orgRole: organizationRole } : {}),
+    ...(claims.sid ? { sessionId: claims.sid } : {}),
+  };
 }
