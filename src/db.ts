@@ -1,11 +1,17 @@
 import type { AuthContext, Env, InvestigationRequest, Plan } from "./types";
 import { HttpError } from "./security";
 
+// Product validation mode. Keep the complete billing/subscription implementation
+// in place, but do not gate product capabilities on payment until launch.
+// Flip this to true only when ZebraByte is ready to enforce paid plans.
+const BILLING_ENFORCEMENT_ENABLED = false;
+
 export async function ensureOrganization(env: Env, auth: AuthContext): Promise<void> {
   await env.DB.prepare(`INSERT OR IGNORE INTO organizations (id, created_at) VALUES (?1, ?2)`).bind(auth.orgId, new Date().toISOString()).run();
 }
 
 export async function getPlan(env: Env, orgId: string): Promise<Plan> {
+  if (!BILLING_ENFORCEMENT_ENABLED) return "enterprise";
   const row = await env.DB.prepare("SELECT plan, status FROM subscriptions WHERE org_id = ?1 LIMIT 1").bind(orgId).first<{ plan: Plan; status: string }>();
   if (!row || !["active", "trialing"].includes(row.status)) return "free";
   return row.plan;
