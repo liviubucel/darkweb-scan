@@ -66,6 +66,58 @@ export async function listInvestigations(env: Env, orgId: string, limit: number,
   return result.results;
 }
 
+export async function listExposures(env: Env, orgId: string, limit: number, offset: number) {
+  const result = await env.DB.prepare(`
+    SELECT
+      i.id,
+      i.query AS asset,
+      i.profile,
+      i.risk_level,
+      i.summary,
+      i.source_count AS evidence_count,
+      i.completed_at,
+      COUNT(DISTINCT a.id) AS indicator_count,
+      COUNT(DISTINCT CASE WHEN a.type = 'email' THEN a.id END) AS email_indicators,
+      COUNT(DISTINCT CASE WHEN a.type = 'domain' THEN a.id END) AS domain_indicators
+    FROM investigations i
+    LEFT JOIN artifacts a ON a.investigation_id = i.id AND a.org_id = i.org_id
+    WHERE i.org_id = ?1
+      AND i.status = 'completed'
+      AND (i.source_count > 0 OR COALESCE(i.risk_level, 'none') <> 'none')
+    GROUP BY i.id, i.query, i.profile, i.risk_level, i.summary, i.source_count, i.completed_at
+    ORDER BY
+      CASE COALESCE(i.risk_level, 'none')
+        WHEN 'critical' THEN 5
+        WHEN 'high' THEN 4
+        WHEN 'medium' THEN 3
+        WHEN 'low' THEN 2
+        ELSE 1
+      END DESC,
+      i.completed_at DESC,
+      i.id DESC
+    LIMIT ?2 OFFSET ?3
+  `).bind(orgId, Math.max(1, Math.min(100, limit)), Math.max(0, offset)).all();
+  return result.results;
+}
+
+export async function getExposureStats(env: Env, orgId: string) {
+  const result = await env.DB.prepare(`
+    SELECT
+      SUM(CASE WHEN status = 'completed' AND (source_count > 0 OR COALESCE(risk_level, 'none') <> 'none') THEN 1 ELSE 0 END) AS exposures,
+      SUM(CASE WHEN status = 'completed' AND risk_level IN ('high', 'critical') THEN 1 ELSE 0 END) AS elevated,
+      SUM(CASE WHEN status IN ('queued', 'running') THEN 1 ELSE 0 END) AS scanning,
+      MAX(completed_at) AS last_scan_at
+    FROM investigations
+    WHERE org_id = ?1
+  `).bind(orgId).first<{ exposures: number | null; elevated: number | null; scanning: number | null; last_scan_at: string | null }>();
+  return {
+    exposures: Number(result?.exposures ?? 0),
+    elevated: Number(result?.elevated ?? 0),
+    scanning: Number(result?.scanning ?? 0),
+    lastScanAt: result?.last_scan_at ?? null,
+  };
+}
+
 export async function getInvestigation(env: Env, orgId: string, id: string) {
   return env.DB.prepare(`SELECT id, query, profile, origin, watchlist_id, status, risk_level, summary, source_count, error_message, created_at, updated_at, completed_at FROM investigations WHERE id = ?1 AND org_id = ?2`).bind(id, orgId).first();
 }
