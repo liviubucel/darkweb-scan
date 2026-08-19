@@ -4,13 +4,12 @@ import { extractArtifacts } from "./artifacts";
 import { rankHits, refineQuery, summarizeInvestigation } from "./ai";
 import { markStatus, setInvestigationKnowledgeItem } from "./db";
 import { detectMonitoringDelta } from "./detection";
+import { enqueueDueDiscovery, searchOnionIndex } from "./discovery";
 import { indexSource, persistEvidence } from "./intelligence";
 import { indexInvestigationKnowledge } from "./knowledge";
-import { readRequiredSecret } from "./secrets";
-import type { Env, InvestigationWorkflowPayload, NotificationJob, SearchHit, ScrapedSource } from "./types";
+import type { Env, InvestigationWorkflowPayload, NotificationJob, ScrapedSource } from "./types";
 import type { TorCollector } from "./container";
 
-interface SearchResponse { results: SearchHit[] }
 interface ScrapeResponse { sources: ScrapedSource[] }
 
 const TOR_COLLECTOR_ID = "zebrabyte-shared-tor-collector";
@@ -22,20 +21,25 @@ export class InvestigationWorkflow extends WorkflowEntrypoint<Env, Investigation
     await step.do("mark-running", async () => { await markStatus(this.env, payload.investigationId, payload.orgId, "running"); });
     try {
       const refinedQuery = await step.do("refine-query", async () => refineQuery(this.env, payload.query));
-      const searchEnginesJson = await step.do("load-collector-config", async () => readRequiredSecret(this.env.ONION_SEARCH_ENGINES_JSON, "Onion search engine configuration"));
-      const hits = await step.do("search-onion-indexes", { retries: { limit: 2, delay: "10 seconds", backoff: "exponential" }, timeout: "3 minutes" }, async () => {
-        const collector = getContainer<TorCollector>(this.env.TOR_COLLECTOR, TOR_COLLECTOR_ID);
-        const raw = (await collector.runRequest("/search", { query: refinedQuery, limit: 60 }, searchEnginesJson)) as SearchResponse;
-        return Array.isArray(raw.results) ? raw.results.slice(0, 60) : [];
-      });
-      const selected = await step.do("rank-search-results", async () => rankHits(this.env, payload.query, hits, maxSources));
+      const hits = await step.do("search-zebrabyte-onion-index", async () => searchOnionIndex(this.env, refinedQuery, 60));
+
+      // If the private index has no match yet, nudge a small seed refresh in the
+      // background. The current investigation remains deterministic and never
+      // falls back to scraping a third-party search engine implicitly.
+      if (!hits.length) {
+        await step.do("nudge-inhouse-discovery", async () => { await enqueueDueDiscovery(this.env, true); });
+      }
+
+      const selected = await step.do("rank-index-results", async () => rankHits(this.env, payload.query, hits, maxSources));
       const sources = await step.do("scrape-selected-sources", { retries: { limit: 2, delay: "15 seconds", backoff: "exponential" }, timeout: "5 minutes" }, async () => {
         if (!selected.length) return [];
         const collector = getContainer<TorCollector>(this.env.TOR_COLLECTOR, TOR_COLLECTOR_ID);
-        const raw = (await collector.runRequest("/scrape", { urls: selected.map((hit) => hit.url) }, searchEnginesJson)) as ScrapeResponse;
+        const raw = (await collector.runRequest("/scrape", { urls: selected.map((hit) => hit.url) })) as ScrapeResponse;
         return Array.isArray(raw.sources) ? raw.sources.slice(0, maxSources) : [];
       });
-      const analysis = await step.do("analyze-grounded-evidence", async () => summarizeInvestigation(this.env, payload.query, sources));
+      const analysis = sources.length
+        ? await step.do("analyze-grounded-evidence", async () => summarizeInvestigation(this.env, payload.query, sources))
+        : { summary: "No matching evidence was present in the ZebraByte onion index at the time of this investigation. The in-house crawler has been asked to refresh priority seed sources.", riskLevel: "none" };
       await step.do("persist-results", async () => {
         const now = new Date().toISOString(); const statements: D1PreparedStatement[] = [];
         for (const [index, source] of sources.entries()) {
