@@ -40,6 +40,10 @@
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
   "vars": {
     "APP_NAME": "ZebraByte Dark Web Intelligence",
+    "APP_ORIGIN": "https://darkweb.zebrabyte.ro",
+    "CLERK_ISSUER": "https://clerk.zebrabyte.ro",
+    "CLERK_JWKS_URL": "https://clerk.zebrabyte.ro/.well-known/jwks.json",
+    "CLERK_AUTHORIZED_PARTIES": "https://darkweb.zebrabyte.ro,https://zbtdarkweb-scan.zebrabyte-uk.workers.dev",
     "EVIDENCE_RETENTION_DAYS": "90",
     "MAX_SELECTED_SOURCES": "8",
     "MAX_QUERY_CHARS": "300",
