@@ -11,7 +11,7 @@ export class TorCollector extends Container {
 
   override async onActivityExpired(): Promise<void> { await this.stop(); }
 
-  async runRequest(path: "/search" | "/scrape", body: unknown, searchEnginesJson: string): Promise<unknown> {
+  async runRequest(path: "/search" | "/scrape", body: unknown, searchEnginesJson = "[]"): Promise<unknown> {
     const previous = this.operationTail;
     let release!: () => void;
     this.operationTail = new Promise<void>((resolve) => { release = resolve; });
