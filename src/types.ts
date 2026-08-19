@@ -71,10 +71,13 @@ export interface Env {
   TOR_COLLECTOR: DurableObjectNamespace;
   CF_VERSION_METADATA: WorkerVersionMetadata;
   APP_NAME: string;
+  APP_ORIGIN: string;
   CLERK_ISSUER: string;
   CLERK_JWKS_URL: string;
   CLERK_AUDIENCE: string;
   CLERK_AUTHORIZED_PARTIES: string;
+  STRIPE_PRICE_PRO: string;
+  STRIPE_PRICE_BUSINESS: string;
   EVIDENCE_RETENTION_DAYS: string;
   MAX_SELECTED_SOURCES: string;
   MAX_QUERY_CHARS: string;
