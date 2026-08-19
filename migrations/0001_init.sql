@@ -26,6 +26,8 @@ CREATE TABLE investigations (
   user_id TEXT NOT NULL,
   query TEXT NOT NULL,
   profile TEXT NOT NULL DEFAULT 'general',
+  origin TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual', 'monitoring')),
+  watchlist_id TEXT,
   status TEXT NOT NULL CHECK (status IN ('queued', 'running', 'completed', 'failed')),
   risk_level TEXT,
   summary TEXT,
@@ -37,6 +39,7 @@ CREATE TABLE investigations (
   completed_at TEXT
 );
 CREATE INDEX idx_investigations_org_created ON investigations(org_id, created_at DESC);
+CREATE INDEX idx_investigations_watchlist ON investigations(org_id, watchlist_id, created_at DESC);
 CREATE TABLE investigation_sources (
   id TEXT PRIMARY KEY,
   investigation_id TEXT NOT NULL,
@@ -65,12 +68,20 @@ CREATE INDEX idx_artifacts_org_type_value ON artifacts(org_id, type, value);
 CREATE TABLE watchlists (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
-  type TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('domain', 'email', 'brand', 'person', 'keyword')),
   value TEXT NOT NULL,
+  profile TEXT NOT NULL DEFAULT 'general',
+  interval_hours INTEGER NOT NULL DEFAULT 24,
   active INTEGER NOT NULL DEFAULT 1,
+  last_run_at TEXT,
+  last_investigation_id TEXT,
+  next_run_at TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(org_id, type, value)
 );
+CREATE INDEX idx_watchlists_due ON watchlists(active, next_run_at);
 CREATE TABLE alerts (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
@@ -119,3 +130,4 @@ CREATE TABLE jobs (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX idx_jobs_type_status_updated ON jobs(type, status, updated_at);
