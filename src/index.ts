@@ -35,6 +35,7 @@ import { askTenantKnowledge, deleteInvestigationKnowledge } from "./knowledge";
 import { consumeMonitoring, createWatchlist, deleteWatchlist, enqueueDueMonitoring, listWatchlists } from "./monitoring";
 import { consumeNotifications } from "./notifications";
 import { enforceEvidenceRetention } from "./retention";
+import { bootstrapPrivateSourceCatalog } from "./source-catalog";
 import { TorCollector } from "./container";
 import { HttpError, json, normalizeQuery, readJson, safeId, withSecurityHeaders } from "./security";
 import type {
@@ -354,6 +355,7 @@ export default {
   },
   async scheduled(_event: ScheduledController, env: Env): Promise<void> {
     await ensureDatabase(env);
+    await bootstrapPrivateSourceCatalog(env);
     await Promise.all([
       enqueueDueMonitoring(env),
       enqueueDueDiscovery(env),
