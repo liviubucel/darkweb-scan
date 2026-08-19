@@ -1,6 +1,6 @@
 import { authenticate } from "./auth";
 import { track } from "./analytics";
-import { createInvestigation, getInvestigation, getPlan } from "./db";
+import { consumeInvestigationQuota, createInvestigation, getInvestigation, getPlan, getUsage, markStatus, refundInvestigationQuota } from "./db";
 import { InvestigationWorkflow } from "./workflow";
 import { browserMarkdown, validateClearWebUrl } from "./enrichment";
 import { consumeNotifications } from "./notifications";
@@ -24,9 +24,16 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   const auth = await authenticate(request, env);
   const plan = await getPlan(env, auth.orgId);
   await enforceRateLimit(env, auth.orgId, plan);
+
   if (request.method === "GET" && url.pathname === "/api/me") {
-    return json({ userId: auth.userId, orgId: auth.orgId, orgRole: auth.orgRole ?? null, plan });
+    const usage = await getUsage(env, auth.orgId, plan);
+    return json({ userId: auth.userId, orgId: auth.orgId, orgRole: auth.orgRole ?? null, plan, usage });
   }
+
+  if (request.method === "GET" && url.pathname === "/api/usage") {
+    return json(await getUsage(env, auth.orgId, plan));
+  }
+
   if (request.method === "POST" && url.pathname === "/api/enrichment/clearweb") {
     if (plan === "free") throw new HttpError(403, "Clear-web enrichment requires a paid plan");
     const body = await readJson<{ url?: unknown }>(request, 4_096);
@@ -35,6 +42,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     track(env, "browser_enrichment", auth.orgId, plan, [markdown.length]);
     return json({ url: target, markdown });
   }
+
   if (request.method === "POST" && url.pathname === "/api/investigations") {
     const body = await readJson<InvestigationRequest>(request, 8_192);
     const query = normalizeQuery(body.query, Number(env.MAX_QUERY_CHARS) || 300);
@@ -42,12 +50,22 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     const profile: NonNullable<InvestigationRequest["profile"]> = ["general", "identity", "corporate", "ransomware"].includes(requestedProfile) ? requestedProfile : "general";
     const featureEnabled = await env.FLAGS.getBooleanValue("investigations", true, { targetingKey: auth.orgId, plan, userId: auth.userId });
     if (!featureEnabled) throw new HttpError(503, "Investigations are temporarily unavailable");
-    const id = await createInvestigation(env, auth, { query, profile });
-    const payload: InvestigationWorkflowPayload = { investigationId: id, orgId: auth.orgId, userId: auth.userId, query, profile };
-    await env.INVESTIGATION_WORKFLOW.create({ id, params: payload });
-    track(env, "investigation_created", auth.orgId, plan, [query.length]);
-    return json({ id, status: "queued" }, 202);
+
+    const quota = await consumeInvestigationQuota(env, auth.orgId, plan);
+    let id: string | undefined;
+    try {
+      id = await createInvestigation(env, auth, { query, profile });
+      const payload: InvestigationWorkflowPayload = { investigationId: id, orgId: auth.orgId, userId: auth.userId, query, profile };
+      await env.INVESTIGATION_WORKFLOW.create({ id, params: payload });
+    } catch (error) {
+      await refundInvestigationQuota(env, auth.orgId).catch(() => undefined);
+      if (id) await markStatus(env, id, auth.orgId, "failed", "Workflow could not be started").catch(() => undefined);
+      throw error;
+    }
+    track(env, "investigation_created", auth.orgId, plan, [query.length, quota.used, quota.limit]);
+    return json({ id, status: "queued", quota }, 202);
   }
+
   const match = url.pathname.match(/^\/api\/investigations\/([a-zA-Z0-9_-]{8,96})$/);
   if (request.method === "GET" && match?.[1]) {
     const id = match[1]; if (!safeId(id)) throw new HttpError(400, "Invalid investigation id");
