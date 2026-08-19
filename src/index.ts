@@ -193,7 +193,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       if (["queued", "running"].includes(String(investigation.status))) throw new HttpError(409, "Running investigations cannot be deleted");
       const targets = await getInvestigationDeletionTargets(env, auth.orgId, id);
       for (const key of targets.objectKeys) await env.EVIDENCE.delete(key);
-      if (targets.sourceIds.length) await env.INTELLIGENCE_INDEX.deleteByIds(targets.sourceIds);
+      if (targets.sourceIds.length && env.INTELLIGENCE_INDEX) await env.INTELLIGENCE_INDEX.deleteByIds(targets.sourceIds);
       if (targets.aiSearchItemId) await deleteInvestigationKnowledge(env, auth.orgId, targets.aiSearchItemId);
       const deleted = await deleteInvestigationRecords(env, auth, id);
       if (!deleted) throw new HttpError(404, "Investigation not found");
