@@ -5,7 +5,7 @@ import { InvestigationWorkflow } from "./workflow";
 import { browserMarkdown, validateClearWebUrl } from "./enrichment";
 import { consumeNotifications } from "./notifications";
 import { TorCollector } from "./container";
-import { HttpError, json, normalizeQuery, safeId, withSecurityHeaders } from "./security";
+import { HttpError, json, normalizeQuery, readJson, safeId, withSecurityHeaders } from "./security";
 import type { Env, InvestigationRequest, InvestigationWorkflowPayload, Plan } from "./types";
 
 export { InvestigationWorkflow, TorCollector };
@@ -29,14 +29,14 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
   if (request.method === "POST" && url.pathname === "/api/enrichment/clearweb") {
     if (plan === "free") throw new HttpError(403, "Clear-web enrichment requires a paid plan");
-    const body = await request.json() as { url?: unknown };
+    const body = await readJson<{ url?: unknown }>(request, 4_096);
     const target = validateClearWebUrl(body.url, env);
     const markdown = await browserMarkdown(env, target);
     track(env, "browser_enrichment", auth.orgId, plan, [markdown.length]);
     return json({ url: target, markdown });
   }
   if (request.method === "POST" && url.pathname === "/api/investigations") {
-    const body = await request.json() as InvestigationRequest;
+    const body = await readJson<InvestigationRequest>(request, 8_192);
     const query = normalizeQuery(body.query, Number(env.MAX_QUERY_CHARS) || 300);
     const requestedProfile = body.profile ?? "general";
     const profile: NonNullable<InvestigationRequest["profile"]> = ["general", "identity", "corporate", "ransomware"].includes(requestedProfile) ? requestedProfile : "general";
