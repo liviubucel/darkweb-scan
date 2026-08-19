@@ -1,12 +1,12 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE organizations (
+CREATE TABLE IF NOT EXISTS organizations (
   id TEXT PRIMARY KEY,
   name TEXT,
   security_email TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
   org_id TEXT PRIMARY KEY,
   provider_customer_id TEXT,
   provider_subscription_id TEXT,
@@ -15,12 +15,12 @@ CREATE TABLE subscriptions (
   current_period_end TEXT,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE billing_events (
+CREATE TABLE IF NOT EXISTS billing_events (
   event_id TEXT PRIMARY KEY,
   event_type TEXT NOT NULL,
   processed_at TEXT NOT NULL
 );
-CREATE TABLE investigations (
+CREATE TABLE IF NOT EXISTS investigations (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
   user_id TEXT NOT NULL,
@@ -38,9 +38,9 @@ CREATE TABLE investigations (
   updated_at TEXT NOT NULL,
   completed_at TEXT
 );
-CREATE INDEX idx_investigations_org_created ON investigations(org_id, created_at DESC);
-CREATE INDEX idx_investigations_watchlist ON investigations(org_id, watchlist_id, created_at DESC);
-CREATE TABLE investigation_sources (
+CREATE INDEX IF NOT EXISTS idx_investigations_org_created ON investigations(org_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_investigations_watchlist ON investigations(org_id, watchlist_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS investigation_sources (
   id TEXT PRIMARY KEY,
   investigation_id TEXT NOT NULL,
   org_id TEXT NOT NULL,
@@ -52,8 +52,8 @@ CREATE TABLE investigation_sources (
   fetched_at TEXT NOT NULL,
   FOREIGN KEY (investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
 );
-CREATE INDEX idx_sources_investigation ON investigation_sources(investigation_id, ordinal);
-CREATE TABLE artifacts (
+CREATE INDEX IF NOT EXISTS idx_sources_investigation ON investigation_sources(investigation_id, ordinal);
+CREATE TABLE IF NOT EXISTS artifacts (
   id TEXT PRIMARY KEY,
   investigation_id TEXT NOT NULL,
   org_id TEXT NOT NULL,
@@ -64,8 +64,8 @@ CREATE TABLE artifacts (
   UNIQUE(org_id, investigation_id, type, value),
   FOREIGN KEY (investigation_id) REFERENCES investigations(id) ON DELETE CASCADE
 );
-CREATE INDEX idx_artifacts_org_type_value ON artifacts(org_id, type, value);
-CREATE TABLE watchlists (
+CREATE INDEX IF NOT EXISTS idx_artifacts_org_type_value ON artifacts(org_id, type, value);
+CREATE TABLE IF NOT EXISTS watchlists (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
   created_by TEXT NOT NULL,
@@ -81,8 +81,8 @@ CREATE TABLE watchlists (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(org_id, type, value)
 );
-CREATE INDEX idx_watchlists_due ON watchlists(active, next_run_at);
-CREATE TABLE alerts (
+CREATE INDEX IF NOT EXISTS idx_watchlists_due ON watchlists(active, next_run_at);
+CREATE TABLE IF NOT EXISTS alerts (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
   investigation_id TEXT,
@@ -92,8 +92,8 @@ CREATE TABLE alerts (
   created_at TEXT NOT NULL,
   sent_at TEXT
 );
-CREATE INDEX idx_alerts_org_created ON alerts(org_id, created_at DESC);
-CREATE TABLE usage (
+CREATE INDEX IF NOT EXISTS idx_alerts_org_created ON alerts(org_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS usage (
   org_id TEXT NOT NULL,
   period TEXT NOT NULL,
   investigations INTEGER NOT NULL DEFAULT 0,
@@ -102,7 +102,7 @@ CREATE TABLE usage (
   container_ms INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY(org_id, period)
 );
-CREATE TABLE audit_logs (
+CREATE TABLE IF NOT EXISTS audit_logs (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
   user_id TEXT,
@@ -112,8 +112,8 @@ CREATE TABLE audit_logs (
   metadata_json TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_audit_org_created ON audit_logs(org_id, created_at DESC);
-CREATE TABLE reports (
+CREATE INDEX IF NOT EXISTS idx_audit_org_created ON audit_logs(org_id, created_at DESC);
+CREATE TABLE IF NOT EXISTS reports (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
   investigation_id TEXT NOT NULL,
@@ -121,7 +121,7 @@ CREATE TABLE reports (
   format TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE TABLE jobs (
+CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
   type TEXT NOT NULL,
@@ -130,4 +130,4 @@ CREATE TABLE jobs (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
-CREATE INDEX idx_jobs_type_status_updated ON jobs(type, status, updated_at);
+CREATE INDEX IF NOT EXISTS idx_jobs_type_status_updated ON jobs(type, status, updated_at);
