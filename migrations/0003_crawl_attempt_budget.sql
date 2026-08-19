@@ -1,0 +1,1 @@
+ALTER TABLE crawl_budget ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
