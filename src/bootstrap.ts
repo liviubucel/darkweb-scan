@@ -138,18 +138,15 @@ CREATE INDEX IF NOT EXISTS idx_jobs_type_status_updated ON jobs(type, status, up
 
 let schemaReady: Promise<void> | undefined;
 
-async function verifyOrCreateSchema(env: Env): Promise<void> {
-  try {
-    await env.DB.prepare("SELECT 1 FROM organizations LIMIT 1").first();
-    return;
-  } catch {
-    await env.DB.exec(SCHEMA_SQL);
-  }
+async function createOrHealSchema(env: Env): Promise<void> {
+  // The SQL is intentionally idempotent. Running it once per Worker isolate also
+  // repairs a partially initialized database instead of checking only one table.
+  await env.DB.exec(SCHEMA_SQL);
 }
 
 export async function ensureDatabase(env: Env): Promise<void> {
   if (!schemaReady) {
-    schemaReady = verifyOrCreateSchema(env).catch((error) => {
+    schemaReady = createOrHealSchema(env).catch((error) => {
       schemaReady = undefined;
       throw error;
     });
