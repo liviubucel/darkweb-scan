@@ -1,10 +1,8 @@
-import { auth } from "@clerk/nextjs/server";
 import { AppShell } from "@/components/shell/app-shell";
+import { WorkspaceAuthBoundary } from "@/components/system/runtime-clerk-provider";
 
 export const dynamic = "force-dynamic";
 
-export default async function WorkspaceLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (!session.isAuthenticated) return session.redirectToSignIn();
-  return <AppShell>{children}</AppShell>;
+export default function WorkspaceLayout({ children }: { children: React.ReactNode }) {
+  return <WorkspaceAuthBoundary><AppShell>{children}</AppShell></WorkspaceAuthBoundary>;
 }
