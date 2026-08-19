@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
-  "name": "zebrabyte-darkweb-intelligence",
+  "name": "zbtdarkweb-scan",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-19",
   "compatibility_flags": ["nodejs_compat"],
@@ -10,19 +10,13 @@
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
   "ai": { "binding": "AI", "remote": true },
   "browser": { "binding": "BROWSER", "remote": true },
-  "d1_databases": [{ "binding": "DB", "database_name": "zebrabyte-darkweb", "database_id": "REPLACE_D1_DATABASE_ID" }],
-  "kv_namespaces": [{ "binding": "CACHE", "id": "REPLACE_KV_NAMESPACE_ID" }],
-  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "zebrabyte-darkweb-evidence" }],
-  "vectorize": [{ "binding": "INTELLIGENCE_INDEX", "index_name": "zebrabyte-darkweb-intelligence" }],
-  "ai_search_namespaces": [{ "binding": "AI_SEARCH", "namespace": "default", "remote": true }],
+  "d1_databases": [{ "binding": "DB" }],
+  "kv_namespaces": [{ "binding": "CACHE" }],
+  "r2_buckets": [{ "binding": "EVIDENCE" }],
+  "ai_search_namespaces": [{ "binding": "AI_SEARCH" }],
   "analytics_engine_datasets": [{ "binding": "ANALYTICS", "dataset": "zebrabyte_darkweb_usage" }],
-  "flagship": [{ "binding": "FLAGS", "app_id": "REPLACE_FLAGSHIP_APP_ID" }],
+  "flagship": [{ "binding": "FLAGS" }],
   "send_email": [{ "name": "EMAIL", "remote": true }],
-  "secrets_store_secrets": [
-    { "binding": "STRIPE_SECRET_KEY", "store_id": "REPLACE_SECRETS_STORE_ID", "secret_name": "STRIPE_SECRET_KEY" },
-    { "binding": "STRIPE_WEBHOOK_SECRET", "store_id": "REPLACE_SECRETS_STORE_ID", "secret_name": "STRIPE_WEBHOOK_SECRET" },
-    { "binding": "ONION_SEARCH_ENGINES_JSON", "store_id": "REPLACE_SECRETS_STORE_ID", "secret_name": "ONION_SEARCH_ENGINES_JSON" }
-  ],
   "ratelimits": [
     { "name": "FREE_RATE_LIMITER", "namespace_id": "41001", "simple": { "limit": 10, "period": 60 } },
     { "name": "PAID_RATE_LIMITER", "namespace_id": "41002", "simple": { "limit": 120, "period": 60 } }
