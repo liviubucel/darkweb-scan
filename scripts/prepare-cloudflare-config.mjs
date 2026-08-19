@@ -13,13 +13,13 @@ if (!existsSync(wranglerBin)) {
   throw new Error("Wrangler binary is unavailable; cannot resolve the production D1 binding.");
 }
 
-function wrangler(args) {
+function wrangler(args, { inherit = false } = {}) {
   return execFileSync(wranglerBin, args, {
     cwd: root,
     encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: inherit ? "inherit" : ["ignore", "pipe", "pipe"],
     env: process.env,
-  }).trim();
+  })?.trim?.() ?? "";
 }
 
 function parseJsonOutput(output) {
@@ -64,7 +64,7 @@ function ensureD1() {
 
   if (!database) {
     console.log(`[cloudflare-sync] Creating D1 ${DB_NAME}`);
-    wrangler(["d1", "create", DB_NAME, "--location", "weur"]);
+    wrangler(["d1", "create", DB_NAME, "--location", "weur"], { inherit: true });
     databases = asArray(parseJsonOutput(wrangler(["d1", "list", "--json"])));
     database = databases.find((item) => item?.name === DB_NAME);
   }
@@ -96,9 +96,17 @@ config.d1_databases = [
 config.r2_buckets = [{ binding: "EVIDENCE", bucket_name: R2_BUCKET }];
 
 // Flagship is optional in application code. The Cloudflare Build API token
-// currently lacks Flagship Read/Write, so do not make installation/deployment
-// depend on that separate account permission.
+// currently lacks Flagship Read/Write, so deployment must not depend on it.
 delete config.flagship;
 
+// Write the fully resolved config before running migrations so Wrangler applies
+// migrations to the exact production database UUID, never an auto-provisioned DB.
 writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 console.log(`[cloudflare-sync] Pinned D1 ${DB_NAME} (${id}) and R2 ${R2_BUCKET}; Workers AI is native Cloudflare.`);
+
+// Schema changes belong in D1 migrations, not in the request path. Applying them
+// here makes Git-connected Cloudflare builds deterministic and fails the build
+// early if the build token cannot administer the configured production D1.
+console.log(`[cloudflare-sync] Applying D1 migrations to ${DB_NAME}...`);
+wrangler(["d1", "migrations", "apply", "DB", "--remote"], { inherit: true });
+console.log(`[cloudflare-sync] D1 migrations are current.`);
