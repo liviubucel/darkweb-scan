@@ -47,17 +47,17 @@ export async function getUsage(env: Env, orgId: string, plan: Plan): Promise<{ p
 
 export async function createInvestigation(env: Env, auth: AuthContext, input: InvestigationRequest): Promise<string> {
   const id = crypto.randomUUID(); const now = new Date().toISOString();
-  await env.DB.prepare(`INSERT INTO investigations (id, org_id, user_id, query, profile, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'queued', ?6, ?6)`).bind(id, auth.orgId, auth.userId, input.query, input.profile ?? "general", now).run();
+  await env.DB.prepare(`INSERT INTO investigations (id, org_id, user_id, query, profile, origin, status, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, 'manual', 'queued', ?6, ?6)`).bind(id, auth.orgId, auth.userId, input.query, input.profile ?? "general", now).run();
   return id;
 }
 
 export async function listInvestigations(env: Env, orgId: string, limit: number, offset: number) {
-  const result = await env.DB.prepare(`SELECT id, query, profile, status, risk_level, source_count, created_at, updated_at, completed_at FROM investigations WHERE org_id = ?1 ORDER BY created_at DESC, id DESC LIMIT ?2 OFFSET ?3`).bind(orgId, limit, offset).all();
+  const result = await env.DB.prepare(`SELECT id, query, profile, origin, watchlist_id, status, risk_level, source_count, created_at, updated_at, completed_at FROM investigations WHERE org_id = ?1 ORDER BY created_at DESC, id DESC LIMIT ?2 OFFSET ?3`).bind(orgId, limit, offset).all();
   return result.results;
 }
 
 export async function getInvestigation(env: Env, orgId: string, id: string) {
-  return env.DB.prepare(`SELECT id, query, profile, status, risk_level, summary, source_count, error_message, created_at, updated_at, completed_at FROM investigations WHERE id = ?1 AND org_id = ?2`).bind(id, orgId).first();
+  return env.DB.prepare(`SELECT id, query, profile, origin, watchlist_id, status, risk_level, summary, source_count, error_message, created_at, updated_at, completed_at FROM investigations WHERE id = ?1 AND org_id = ?2`).bind(id, orgId).first();
 }
 
 export async function listInvestigationSources(env: Env, orgId: string, investigationId: string) {
