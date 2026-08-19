@@ -8,6 +8,12 @@ interface StripeEvent {
   data?: { object?: Record<string, unknown> };
 }
 
+function configured(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized || normalized.startsWith("REPLACE_")) return undefined;
+  return normalized;
+}
+
 function isPersonalOrg(auth: AuthContext): boolean {
   return auth.orgId === `personal:${auth.userId}`;
 }
@@ -20,15 +26,26 @@ export function requireBillingAdmin(auth: AuthContext): void {
 }
 
 function planPrice(env: Env, plan: Plan): string | undefined {
-  if (plan === "pro") return env.STRIPE_PRICE_PRO || undefined;
-  if (plan === "business") return env.STRIPE_PRICE_BUSINESS || undefined;
+  if (plan === "pro") return configured(env.STRIPE_PRICE_PRO);
+  if (plan === "business") return configured(env.STRIPE_PRICE_BUSINESS);
   return undefined;
 }
 
 function pricePlan(env: Env, priceId: string | undefined): Plan | undefined {
-  if (priceId && priceId === env.STRIPE_PRICE_PRO) return "pro";
-  if (priceId && priceId === env.STRIPE_PRICE_BUSINESS) return "business";
+  const pro = configured(env.STRIPE_PRICE_PRO);
+  const business = configured(env.STRIPE_PRICE_BUSINESS);
+  if (priceId && pro && priceId === pro) return "pro";
+  if (priceId && business && priceId === business) return "business";
   return undefined;
+}
+
+function resolveAppOrigin(env: Env, requestUrl: string): URL {
+  const configuredOrigin = configured(env.APP_ORIGIN);
+  const candidate = configuredOrigin ?? new URL(requestUrl).origin;
+  let origin: URL;
+  try { origin = new URL(candidate); } catch { throw new HttpError(503, "Application origin is not configured"); }
+  if (origin.protocol !== "https:") throw new HttpError(503, "Application origin must use HTTPS");
+  return origin;
 }
 
 async function stripePost(env: Env, path: string, params: URLSearchParams): Promise<Record<string, unknown>> {
@@ -46,14 +63,13 @@ async function stripePost(env: Env, path: string, params: URLSearchParams): Prom
   return payload;
 }
 
-export async function createCheckout(env: Env, auth: AuthContext, requestedPlan: unknown): Promise<{ id: string; url: string }> {
+export async function createCheckout(env: Env, auth: AuthContext, requestedPlan: unknown, requestUrl: string): Promise<{ id: string; url: string }> {
   requireBillingAdmin(auth);
   const plan = requestedPlan === "pro" || requestedPlan === "business" ? requestedPlan : undefined;
   if (!plan) throw new HttpError(400, "Unsupported plan");
   const price = planPrice(env, plan);
-  if (!price || price.startsWith("REPLACE_")) throw new HttpError(503, "Plan pricing is not configured");
-  const origin = new URL(env.APP_ORIGIN);
-  if (origin.protocol !== "https:" || origin.hostname === "REPLACE_APP_DOMAIN") throw new HttpError(503, "Application origin is not configured");
+  if (!price) throw new HttpError(503, "Plan pricing is not configured");
+  const origin = resolveAppOrigin(env, requestUrl);
 
   const params = new URLSearchParams();
   params.set("mode", "subscription");
@@ -72,12 +88,11 @@ export async function createCheckout(env: Env, auth: AuthContext, requestedPlan:
   return { id: session.id, url: session.url };
 }
 
-export async function createBillingPortal(env: Env, auth: AuthContext): Promise<{ url: string }> {
+export async function createBillingPortal(env: Env, auth: AuthContext, requestUrl: string): Promise<{ url: string }> {
   requireBillingAdmin(auth);
   const subscription = await env.DB.prepare(`SELECT provider_customer_id FROM subscriptions WHERE org_id = ?1 LIMIT 1`).bind(auth.orgId).first<{ provider_customer_id: string | null }>();
   if (!subscription?.provider_customer_id) throw new HttpError(404, "No billing customer found");
-  const origin = new URL(env.APP_ORIGIN);
-  if (origin.protocol !== "https:" || origin.hostname === "REPLACE_APP_DOMAIN") throw new HttpError(503, "Application origin is not configured");
+  const origin = resolveAppOrigin(env, requestUrl);
   const params = new URLSearchParams();
   params.set("customer", subscription.provider_customer_id);
   params.set("return_url", `${origin.origin}/app/billing`);
@@ -162,6 +177,7 @@ async function syncSubscription(env: Env, object: Record<string, unknown>, event
   const periodEndRaw = object.current_period_end;
   const periodEnd = typeof periodEndRaw === "number" && Number.isFinite(periodEndRaw) ? new Date(periodEndRaw * 1000).toISOString() : null;
   const now = new Date().toISOString();
+  await env.DB.prepare(`INSERT OR IGNORE INTO organizations (id, created_at) VALUES (?1, ?2)`).bind(orgId, now).run();
   await env.DB.prepare(`INSERT INTO subscriptions (org_id, provider_customer_id, provider_subscription_id, plan, status, current_period_end, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT(org_id) DO UPDATE SET provider_customer_id = excluded.provider_customer_id, provider_subscription_id = excluded.provider_subscription_id, plan = excluded.plan, status = excluded.status, current_period_end = excluded.current_period_end, updated_at = excluded.updated_at`).bind(orgId, customerId(object) ?? null, subscriptionId, plan, status, periodEnd, now).run();
 }
 
