@@ -32,10 +32,10 @@ jobs:
             echo "Potential hard-coded credential detected"
             exit 1
           fi
-      - name: Reject legacy platform markers
+      - name: Reject pre-reset project markers
         shell: bash
         run: |
-          if git grep -nEi '(robin|apurvsg|apurvsinghgautam|vercel|railway|streamlit|netlify)' -- ':!package-lock.json'; then
-            echo "Legacy project/platform marker detected"
+          if git grep -nEi '(robin|apurvsg|apurvsinghgautam|vercel|railway|streamlit|netlify)' -- ':!package-lock.json' ':!.github/workflows/security.yml'; then
+            echo "Pre-reset project/platform marker detected"
             exit 1
           fi
