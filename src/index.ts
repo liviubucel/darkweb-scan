@@ -18,6 +18,7 @@ import {
 } from "./db";
 import { InvestigationWorkflow } from "./workflow";
 import { browserMarkdown, validateClearWebUrl } from "./enrichment";
+import { askTenantKnowledge, deleteInvestigationKnowledge } from "./knowledge";
 import { consumeNotifications } from "./notifications";
 import { TorCollector } from "./container";
 import { HttpError, json, normalizeQuery, readJson, safeId, withSecurityHeaders } from "./security";
@@ -100,6 +101,14 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     return json(result);
   }
 
+  if (request.method === "POST" && url.pathname === "/api/intelligence/ask") {
+    if (plan === "free") throw new HttpError(403, "Investigation knowledge search requires a paid plan");
+    const body = await readJson<{ query?: unknown }>(request, 8_192);
+    const result = await askTenantKnowledge(env, auth.orgId, body.query);
+    track(env, "intelligence_ask", auth.orgId, plan, [result.contextCount]);
+    return json(result);
+  }
+
   if (request.method === "GET" && url.pathname === "/api/investigations") {
     const limit = boundedInteger(url.searchParams.get("limit"), 25, 1, 50);
     const offset = boundedInteger(url.searchParams.get("offset"), 0, 0, 5_000);
@@ -161,6 +170,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
       const targets = await getInvestigationDeletionTargets(env, auth.orgId, id);
       for (const key of targets.objectKeys) await env.EVIDENCE.delete(key);
       if (targets.sourceIds.length) await env.INTELLIGENCE_INDEX.deleteByIds(targets.sourceIds);
+      if (targets.aiSearchItemId) await deleteInvestigationKnowledge(env, auth.orgId, targets.aiSearchItemId);
       const deleted = await deleteInvestigationRecords(env, auth, id);
       if (!deleted) throw new HttpError(404, "Investigation not found");
       track(env, "investigation_deleted", auth.orgId, plan, [targets.objectKeys.length, targets.sourceIds.length]);
