@@ -30,28 +30,28 @@ export function InvestigationDetail({ id }: { id: string }) {
   return (
     <div className="page-shell">
       <div className="mb-5 flex items-center justify-between gap-3"><Link href="/investigations" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-ml-2")}><IconArrowLeft /> Investigations</Link><Button variant="destructive" size="sm" disabled={isActive || deleteMutation.isPending} onClick={() => { if (window.confirm("Delete this investigation and its retained evidence? This cannot be undone.")) deleteMutation.mutate(); }}><IconTrash /> Delete</Button></div>
-      <div className="page-header"><div className="min-w-0"><p className="page-eyebrow">Investigation</p><h1 className="page-title break-words">{item.query}</h1><div className="mt-3 flex flex-wrap items-center gap-2"><StatusBadge status={item.status} /><RiskBadge risk={item.risk_level} /><span className="font-mono text-[10px] text-muted-foreground">{item.profile}</span><span className="font-mono text-[10px] text-muted-foreground">{item.origin}</span></div></div></div>
+      <div className="page-header"><div className="min-w-0"><p className="page-eyebrow">Exposure investigation</p><h1 className="page-title break-words">{item.query}</h1><div className="mt-3 flex flex-wrap items-center gap-2"><StatusBadge status={item.status} /><RiskBadge risk={item.risk_level} /><span className="font-mono text-[10px] text-muted-foreground">{item.profile}</span><span className="font-mono text-[10px] text-muted-foreground">{item.origin}</span></div></div></div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Fact label="Risk level" value={titleCase(String(item.risk_level ?? "none"))} icon={<IconFingerprint />} />
-        <Fact label="Retained sources" value={String(item.source_count ?? 0)} icon={<IconDatabase />} />
+        <Fact label="Verified evidence" value={String(item.source_count ?? 0)} icon={<IconDatabase />} />
         <Fact label="Indicators" value={String(artifactItems.length)} icon={<IconFingerprint />} />
         <Fact label="Updated" value={formatDate(item.updated_at)} icon={<IconClock />} compact />
       </div>
 
       <Card className="mt-3">
-        <CardHeader><div><p className="page-eyebrow">Grounded assessment</p><CardTitle>Workers AI summary</CardTitle></div><span className="font-mono text-[10px] text-muted-foreground">EVIDENCE-BOUND</span></CardHeader>
+        <CardHeader><div><p className="page-eyebrow">Grounded assessment</p><CardTitle>Exposure assessment</CardTitle></div><span className="font-mono text-[10px] text-muted-foreground">EVIDENCE-BOUND</span></CardHeader>
         <CardContent>
-          {isActive ? <div className="flex items-center gap-3 py-7 text-sm text-muted-foreground"><span className="size-2 animate-pulse rounded-full bg-foreground" /> Workflow {item.status}. This view refreshes automatically.</div> : item.status === "failed" ? <div className="rounded-md border border-red-950 bg-red-950/20 p-3 text-sm text-red-300">{item.error_message || "Investigation failed before analysis completed."}</div> : <div className="whitespace-pre-wrap text-[13px] leading-6 text-foreground/90">{item.summary || "No grounded summary was retained for this investigation."}</div>}
+          {isActive ? <div className="flex items-center gap-3 py-7 text-sm text-muted-foreground"><span className="size-2 animate-pulse rounded-full bg-foreground" /> Verification {item.status}. This view refreshes automatically.</div> : item.status === "failed" ? <div className="rounded-md border border-red-950 bg-red-950/20 p-3 text-sm text-red-300">{item.error_message || "Investigation failed before analysis completed."}</div> : <div className="whitespace-pre-wrap text-[13px] leading-6 text-foreground/90">{item.summary || "No grounded summary was retained for this investigation."}</div>}
         </CardContent>
       </Card>
 
       <div className="mt-3 grid gap-3 xl:grid-cols-2">
         <Card>
-          <CardHeader><div><p className="page-eyebrow">Evidence</p><CardTitle>Retained source references</CardTitle></div><span className="font-mono text-[10px] text-muted-foreground">{sourceItems.length} SOURCES</span></CardHeader>
+          <CardHeader><div><p className="page-eyebrow">Evidence</p><CardTitle>Verified evidence references</CardTitle></div><span className="font-mono text-[10px] text-muted-foreground">{sourceItems.length} ITEMS</span></CardHeader>
           <div className="divide-y divide-border">
-            {sourceItems.map((source) => <div key={source.id} className="p-4"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="m-0 break-words text-[13px] font-medium">{source.ordinal}. {source.title || "Untitled source"}</p><p className="m-0 mt-1 text-[11px] text-muted-foreground">Fetched {formatDate(source.fetched_at)}</p></div><span className="rounded border border-border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">SHA-256</span></div><code className="mt-3 block break-all rounded-md bg-background p-2 text-[10px] leading-4 text-muted-foreground">{source.content_sha256}</code></div>)}
-            {!sourceItems.length && <div className="data-empty">{isActive ? "Sources will appear after collection completes." : "No retained source references."}</div>}
+            {sourceItems.map((source) => <div key={source.id} className="p-4"><div className="flex items-start justify-between gap-4"><div className="min-w-0"><p className="m-0 break-words text-[13px] font-medium">Evidence reference #{source.ordinal}</p><p className="m-0 mt-1 text-[11px] text-muted-foreground">Observed {formatDate(source.fetched_at)} · Collection source retained privately by ZebraByte</p></div><span className="rounded border border-border px-1.5 py-0.5 font-mono text-[9px] text-muted-foreground">SHA-256</span></div><code className="mt-3 block break-all rounded-md bg-background p-2 text-[10px] leading-4 text-muted-foreground">{source.content_sha256}</code></div>)}
+            {!sourceItems.length && <div className="data-empty">{isActive ? "Evidence references will appear after verification completes." : "No retained evidence references."}</div>}
           </div>
         </Card>
 
