@@ -9,7 +9,7 @@ export const SECURITY_HEADERS: Record<string, string> = {
   "referrer-policy": "no-referrer",
   "permissions-policy": "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
   "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
-  "content-security-policy": "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; form-action 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'",
+  "content-security-policy": "default-src 'self'; base-uri 'none'; frame-ancestors 'none'; object-src 'none'; form-action 'self' https://accounts.zebrabyte.ro; img-src 'self' data:; style-src 'self'; script-src 'self' https://clerk.zebrabyte.ro; connect-src 'self' https://auth.zebrabyte.ro https://clerk.zebrabyte.ro; frame-src https://clerk.zebrabyte.ro https://accounts.zebrabyte.ro",
 };
 
 export function json(data: unknown, status = 200): Response {
