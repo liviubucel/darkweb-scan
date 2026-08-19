@@ -4,16 +4,38 @@ import { extractArtifacts } from "./artifacts";
 import { rankHits, refineQuery, summarizeInvestigation } from "./ai";
 import { markStatus, setInvestigationKnowledgeItem } from "./db";
 import { detectMonitoringDelta } from "./detection";
-import { enqueueDueDiscovery, searchOnionIndex } from "./discovery";
+import { enqueueDueDiscovery, getDiscoveryStatus, searchOnionIndex } from "./discovery";
 import { indexSource, persistEvidence } from "./intelligence";
 import { loadIndexedEvidence } from "./indexed-evidence";
 import { indexInvestigationKnowledge } from "./knowledge";
-import type { Env, InvestigationWorkflowPayload, NotificationJob, ScrapedSource } from "./types";
+import type { Env, InvestigationWorkflowPayload, NotificationJob, ScrapedSource, SearchHit } from "./types";
 import type { TorCollector } from "./container";
 
 interface ScrapeResponse { sources: ScrapedSource[] }
 
 const TOR_COLLECTOR_ID = "zebrabyte-shared-tor-collector";
+
+function mergeHits(...groups: SearchHit[][]): SearchHit[] {
+  const merged: SearchHit[] = [];
+  const seen = new Set<string>();
+  for (const group of groups) {
+    for (const hit of group) {
+      if (!hit?.url || seen.has(hit.url)) continue;
+      seen.add(hit.url);
+      merged.push(hit);
+      if (merged.length >= 60) return merged;
+    }
+  }
+  return merged;
+}
+
+async function searchExactAndRefined(env: Env, exactQuery: string, refinedQuery: string): Promise<SearchHit[]> {
+  const exact = await searchOnionIndex(env, exactQuery, 60);
+  if (refinedQuery.trim().toLocaleLowerCase("ro-RO") === exactQuery.trim().toLocaleLowerCase("ro-RO")) return exact;
+  const refined = await searchOnionIndex(env, refinedQuery, 60);
+  // Exact user identifiers always win over AI-refined search text.
+  return mergeHits(exact, refined);
+}
 
 export class InvestigationWorkflow extends WorkflowEntrypoint<Env, InvestigationWorkflowPayload> {
   override async run(event: WorkflowEvent<InvestigationWorkflowPayload>, step: WorkflowStep): Promise<void> {
@@ -22,13 +44,21 @@ export class InvestigationWorkflow extends WorkflowEntrypoint<Env, Investigation
     await step.do("mark-running", async () => { await markStatus(this.env, payload.investigationId, payload.orgId, "running"); });
     try {
       const refinedQuery = await step.do("refine-query", async () => refineQuery(this.env, payload.query));
-      const hits = await step.do("search-zebrabyte-onion-index", async () => searchOnionIndex(this.env, refinedQuery, 60));
+      let hits = await step.do("search-zebrabyte-onion-index-exact-and-refined", async () => searchExactAndRefined(this.env, payload.query, refinedQuery));
 
-      // If the private index has no match yet, nudge a small seed refresh in the
-      // background. The current investigation remains deterministic and never
-      // falls back to scraping a third-party search engine implicitly.
+      // A zero-hit result is not evidence of absence. Refresh both seed and due
+      // discovered pages, wait durably for the single-concurrency crawler to make
+      // progress, then re-query the private index before concluding this run.
       if (!hits.length) {
-        await step.do("nudge-inhouse-discovery", async () => { await enqueueDueDiscovery(this.env, true); });
+        const queued = await step.do("nudge-inhouse-discovery", async () => {
+          const seeds = await enqueueDueDiscovery(this.env, true);
+          const discovered = await enqueueDueDiscovery(this.env, false);
+          return { seeds, discovered };
+        });
+        if (queued.seeds + queued.discovered > 0) {
+          await step.sleep("wait-for-inhouse-discovery-refresh", "45 seconds");
+          hits = await step.do("recheck-zebrabyte-onion-index", async () => searchExactAndRefined(this.env, payload.query, refinedQuery));
+        }
       }
 
       const selected = await step.do("rank-index-results", async () => rankHits(this.env, payload.query, hits, maxSources));
@@ -47,9 +77,14 @@ export class InvestigationWorkflow extends WorkflowEntrypoint<Env, Investigation
         // intentionally not required for normal operation.
         return loadIndexedEvidence(this.env, urls, maxSources);
       });
+
+      const coverage = await step.do("capture-index-coverage", async () => getDiscoveryStatus(this.env));
       const analysis = sources.length
         ? await step.do("analyze-grounded-evidence", async () => summarizeInvestigation(this.env, payload.query, sources))
-        : { summary: "No matching evidence was present in the ZebraByte onion index at the time of this investigation. The in-house crawler has been asked to refresh priority seed sources.", riskLevel: "none" };
+        : {
+            summary: `No matching evidence was found in the current ZebraByte index after a targeted refresh. This is not proof that the target is absent from the dark web. Current coverage: ${coverage.indexedPages} indexed pages across ${coverage.enabledSources} enabled onion URLs; ${coverage.dueSources} source(s) are still awaiting crawl.`,
+            riskLevel: "none",
+          };
       await step.do("persist-results", async () => {
         const now = new Date().toISOString(); const statements: D1PreparedStatement[] = [];
         for (const [index, source] of sources.entries()) {
