@@ -23,11 +23,13 @@
   "queues": {
     "producers": [
       { "binding": "NOTIFICATIONS", "queue": "zebrabyte-darkweb-notifications" },
-      { "binding": "MONITORING", "queue": "zebrabyte-darkweb-monitoring" }
+      { "binding": "MONITORING", "queue": "zebrabyte-darkweb-monitoring" },
+      { "binding": "DISCOVERY", "queue": "zebrabyte-darkweb-discovery" }
     ],
     "consumers": [
       { "queue": "zebrabyte-darkweb-notifications", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5, "dead_letter_queue": "zebrabyte-darkweb-notifications-dlq" },
-      { "queue": "zebrabyte-darkweb-monitoring", "max_batch_size": 1, "max_batch_timeout": 2, "max_retries": 10, "retry_delay": 120, "max_concurrency": 1, "dead_letter_queue": "zebrabyte-darkweb-monitoring-dlq" }
+      { "queue": "zebrabyte-darkweb-monitoring", "max_batch_size": 1, "max_batch_timeout": 2, "max_retries": 10, "retry_delay": 120, "max_concurrency": 1, "dead_letter_queue": "zebrabyte-darkweb-monitoring-dlq" },
+      { "queue": "zebrabyte-darkweb-discovery", "max_batch_size": 1, "max_batch_timeout": 2, "max_retries": 8, "retry_delay": 300, "max_concurrency": 1, "dead_letter_queue": "zebrabyte-darkweb-discovery-dlq" }
     ]
   },
   "workflows": [{ "name": "zebrabyte-darkweb-investigation", "binding": "INVESTIGATION_WORKFLOW", "class_name": "InvestigationWorkflow", "limits": { "steps": 10000 } }],
@@ -44,6 +46,14 @@
     "CLERK_ISSUER": "https://clerk.zebrabyte.ro",
     "CLERK_JWKS_URL": "https://clerk.zebrabyte.ro/.well-known/jwks.json",
     "CLERK_AUTHORIZED_PARTIES": "https://darkweb.zebrabyte.ro,https://zbtdarkweb-scan.zebrabyte-uk.workers.dev",
+    "MARKET_FOCUS": "RO",
+    "CRAWL_DAILY_PAGE_BUDGET": "120",
+    "CRAWL_MAX_DEPTH": "2",
+    "CRAWL_MAX_DISCOVERED_LINKS": "20",
+    "CRAWL_SEED_REFRESH_HOURS": "12",
+    "CRAWL_DISCOVERED_REFRESH_HOURS": "72",
+    "CRAWL_MAX_CATALOG_SOURCES": "25000",
+    "CRAWL_INDEX_TEXT_CHARS": "30000",
     "EVIDENCE_RETENTION_DAYS": "90",
     "MAX_SELECTED_SOURCES": "8",
     "MAX_QUERY_CHARS": "300",
