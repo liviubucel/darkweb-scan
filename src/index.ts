@@ -8,10 +8,12 @@ import {
   createInvestigation,
   deleteInvestigationRecords,
   ensureOrganization,
+  getExposureStats,
   getInvestigation,
   getInvestigationDeletionTargets,
   getPlan,
   getUsage,
+  listExposures,
   listInvestigationArtifacts,
   listInvestigations,
   listInvestigationSources,
@@ -133,6 +135,16 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "GET" && url.pathname === "/api/usage") {
     return json(await getUsage(env, auth.orgId, plan));
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/exposures") {
+    const limit = boundedInteger(url.searchParams.get("limit"), 50, 1, 100);
+    const offset = boundedInteger(url.searchParams.get("offset"), 0, 0, 5_000);
+    const [stats, items] = await Promise.all([
+      getExposureStats(env, auth.orgId),
+      listExposures(env, auth.orgId, limit, offset),
+    ]);
+    return json({ stats, items, pagination: { limit, offset, nextOffset: items.length === limit ? offset + limit : null } });
   }
 
   if (request.method === "GET" && url.pathname === "/api/billing") {
