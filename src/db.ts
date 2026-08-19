@@ -51,8 +51,51 @@ export async function createInvestigation(env: Env, auth: AuthContext, input: In
   return id;
 }
 
+export async function listInvestigations(env: Env, orgId: string, limit: number, offset: number) {
+  const result = await env.DB.prepare(`SELECT id, query, profile, status, risk_level, source_count, created_at, updated_at, completed_at FROM investigations WHERE org_id = ?1 ORDER BY created_at DESC, id DESC LIMIT ?2 OFFSET ?3`).bind(orgId, limit, offset).all();
+  return result.results;
+}
+
 export async function getInvestigation(env: Env, orgId: string, id: string) {
-  return env.DB.prepare(`SELECT id, query, profile, status, risk_level, summary, source_count, created_at, updated_at, completed_at FROM investigations WHERE id = ?1 AND org_id = ?2`).bind(id, orgId).first();
+  return env.DB.prepare(`SELECT id, query, profile, status, risk_level, summary, source_count, error_message, created_at, updated_at, completed_at FROM investigations WHERE id = ?1 AND org_id = ?2`).bind(id, orgId).first();
+}
+
+export async function listInvestigationSources(env: Env, orgId: string, investigationId: string) {
+  const result = await env.DB.prepare(`SELECT id, ordinal, title, onion_url, content_sha256, fetched_at FROM investigation_sources WHERE investigation_id = ?1 AND org_id = ?2 ORDER BY ordinal ASC`).bind(investigationId, orgId).all();
+  return result.results;
+}
+
+export async function listInvestigationArtifacts(env: Env, orgId: string, investigationId: string) {
+  const result = await env.DB.prepare(`SELECT id, type, value, source_id, created_at FROM artifacts WHERE investigation_id = ?1 AND org_id = ?2 ORDER BY type ASC, value ASC LIMIT 1000`).bind(investigationId, orgId).all();
+  return result.results;
+}
+
+export async function getInvestigationDeletionTargets(env: Env, orgId: string, investigationId: string): Promise<{ sourceIds: string[]; objectKeys: string[] }> {
+  const [sources, reports] = await env.DB.batch([
+    env.DB.prepare(`SELECT id, r2_key FROM investigation_sources WHERE investigation_id = ?1 AND org_id = ?2`).bind(investigationId, orgId),
+    env.DB.prepare(`SELECT r2_key FROM reports WHERE investigation_id = ?1 AND org_id = ?2`).bind(investigationId, orgId),
+  ]);
+  const sourceRows = (sources.results ?? []) as Array<{ id?: unknown; r2_key?: unknown }>;
+  const reportRows = (reports.results ?? []) as Array<{ r2_key?: unknown }>;
+  const sourceIds = sourceRows.map((row) => typeof row.id === "string" ? row.id : "").filter(Boolean);
+  const objectKeys = [...sourceRows, ...reportRows].map((row) => typeof row.r2_key === "string" ? row.r2_key : "").filter(Boolean);
+  return { sourceIds, objectKeys };
+}
+
+export async function deleteInvestigationRecords(env: Env, auth: AuthContext, investigationId: string): Promise<boolean> {
+  const exists = await env.DB.prepare(`SELECT id FROM investigations WHERE id = ?1 AND org_id = ?2 LIMIT 1`).bind(investigationId, auth.orgId).first();
+  if (!exists) return false;
+  const auditId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await env.DB.batch([
+    env.DB.prepare(`DELETE FROM artifacts WHERE investigation_id = ?1 AND org_id = ?2`).bind(investigationId, auth.orgId),
+    env.DB.prepare(`DELETE FROM investigation_sources WHERE investigation_id = ?1 AND org_id = ?2`).bind(investigationId, auth.orgId),
+    env.DB.prepare(`DELETE FROM reports WHERE investigation_id = ?1 AND org_id = ?2`).bind(investigationId, auth.orgId),
+    env.DB.prepare(`DELETE FROM alerts WHERE investigation_id = ?1 AND org_id = ?2`).bind(investigationId, auth.orgId),
+    env.DB.prepare(`DELETE FROM investigations WHERE id = ?1 AND org_id = ?2`).bind(investigationId, auth.orgId),
+    env.DB.prepare(`INSERT INTO audit_logs (id, org_id, user_id, action, target_type, target_id, metadata_json, created_at) VALUES (?1, ?2, ?3, 'investigation.deleted', 'investigation', ?4, '{}', ?5)`).bind(auditId, auth.orgId, auth.userId, investigationId, now),
+  ]);
+  return true;
 }
 
 export async function markStatus(env: Env, id: string, orgId: string, status: string, error?: string): Promise<void> {
