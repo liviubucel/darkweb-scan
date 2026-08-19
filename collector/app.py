@@ -16,12 +16,17 @@ from pydantic import BaseModel, Field
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-MAX_PAGE_BYTES = 1_500_000
-MAX_TEXT_CHARS = 60_000
-MAX_SCRAPE_RESPONSE_BYTES = 700_000
-MAX_RESULTS = 60
-MAX_SCRAPE_URLS = 12
-REQUEST_TIMEOUT = (8, 25)
+# Resource guard for Cloudflare Containers `lite` (1/16 vCPU, 256 MiB RAM).
+# Keep Tor collection deliberately I/O-bound and bounded so a single scan cannot
+# create unbounded memory, CPU, network, or response growth inside the container.
+MAX_PARALLEL_FETCHES = 2
+MAX_SEARCH_ENGINES = 8
+MAX_PAGE_BYTES = 1_000_000
+MAX_TEXT_CHARS = 40_000
+MAX_SCRAPE_RESPONSE_BYTES = 500_000
+MAX_RESULTS = 40
+MAX_SCRAPE_URLS = 8
+REQUEST_TIMEOUT = (8, 20)
 ALLOWED_PORTS = {None, 80, 443}
 ONION_V3 = re.compile(r"^[a-z2-7]{56}\.onion$", re.IGNORECASE)
 
@@ -51,8 +56,14 @@ def _session() -> requests.Session:
         allowed_methods=frozenset({"GET"}),
         raise_on_status=False,
     )
-    session.mount("http://", HTTPAdapter(max_retries=retry, pool_connections=8, pool_maxsize=8))
-    session.mount("https://", HTTPAdapter(max_retries=retry, pool_connections=8, pool_maxsize=8))
+    session.mount(
+        "http://",
+        HTTPAdapter(max_retries=retry, pool_connections=MAX_PARALLEL_FETCHES, pool_maxsize=MAX_PARALLEL_FETCHES),
+    )
+    session.mount(
+        "https://",
+        HTTPAdapter(max_retries=retry, pool_connections=MAX_PARALLEL_FETCHES, pool_maxsize=MAX_PARALLEL_FETCHES),
+    )
     session.proxies = {"http": "socks5h://127.0.0.1:9050", "https": "socks5h://127.0.0.1:9050"}
     session.headers.update(
         {
@@ -146,7 +157,7 @@ def _engines() -> list[dict[str, str]]:
     output: list[dict[str, str]] = []
     if not isinstance(parsed, list):
         return output
-    for item in parsed[:20]:
+    for item in parsed[:MAX_SEARCH_ENGINES]:
         if not isinstance(item, dict):
             continue
         name = str(item.get("name", ""))[:80]
@@ -222,7 +233,18 @@ def _bounded_sources(urls: list[str], completed: dict[str, dict[str, str]]) -> l
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"ok": True, "collector": "tor", "mode": "defensive"}
+    return {
+        "ok": True,
+        "collector": "tor",
+        "mode": "defensive",
+        "limits": {
+            "parallelFetches": MAX_PARALLEL_FETCHES,
+            "searchEngines": MAX_SEARCH_ENGINES,
+            "pageBytes": MAX_PAGE_BYTES,
+            "scrapeUrls": MAX_SCRAPE_URLS,
+            "responseBytes": MAX_SCRAPE_RESPONSE_BYTES,
+        },
+    }
 
 
 @app.post("/search")
@@ -233,7 +255,7 @@ def search(request: SearchRequest) -> dict[str, Any]:
         raise HTTPException(status_code=503, detail="No onion search engines configured")
     combined: list[dict[str, str]] = []
     seen: set[str] = set()
-    with ThreadPoolExecutor(max_workers=min(4, len(engines))) as executor:
+    with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_FETCHES, len(engines))) as executor:
         futures = [executor.submit(_search_engine, engine, query) for engine in engines]
         for future in as_completed(futures):
             try:
@@ -278,7 +300,7 @@ def scrape(request: ScrapeRequest) -> dict[str, Any]:
             urls.append(validated)
 
     completed: dict[str, dict[str, str]] = {}
-    with ThreadPoolExecutor(max_workers=min(4, len(urls))) as executor:
+    with ThreadPoolExecutor(max_workers=min(MAX_PARALLEL_FETCHES, len(urls))) as executor:
         futures = {executor.submit(_scrape_one, url): url for url in urls}
         for future in as_completed(futures):
             requested_url = futures[future]
