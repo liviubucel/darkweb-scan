@@ -1,5 +1,6 @@
 import type { AuthContext, Env, Plan } from "./types";
 import { HttpError } from "./security";
+import { readRequiredSecret } from "./secrets";
 
 interface StripeEvent {
   id?: string;
@@ -31,8 +32,7 @@ function pricePlan(env: Env, priceId: string | undefined): Plan | undefined {
 }
 
 async function stripePost(env: Env, path: string, params: URLSearchParams): Promise<Record<string, unknown>> {
-  const secret = await env.STRIPE_SECRET_KEY.get();
-  if (!secret) throw new HttpError(503, "Billing is not configured");
+  const secret = await readRequiredSecret(env.STRIPE_SECRET_KEY, "Stripe secret key");
   const response = await fetch(`https://api.stripe.com${path}`, {
     method: "POST",
     headers: {
@@ -51,9 +51,9 @@ export async function createCheckout(env: Env, auth: AuthContext, requestedPlan:
   const plan = requestedPlan === "pro" || requestedPlan === "business" ? requestedPlan : undefined;
   if (!plan) throw new HttpError(400, "Unsupported plan");
   const price = planPrice(env, plan);
-  if (!price) throw new HttpError(503, "Plan pricing is not configured");
+  if (!price || price.startsWith("REPLACE_")) throw new HttpError(503, "Plan pricing is not configured");
   const origin = new URL(env.APP_ORIGIN);
-  if (origin.protocol !== "https:") throw new HttpError(500, "Invalid application origin");
+  if (origin.protocol !== "https:" || origin.hostname === "REPLACE_APP_DOMAIN") throw new HttpError(503, "Application origin is not configured");
 
   const params = new URLSearchParams();
   params.set("mode", "subscription");
@@ -77,6 +77,7 @@ export async function createBillingPortal(env: Env, auth: AuthContext): Promise<
   const subscription = await env.DB.prepare(`SELECT provider_customer_id FROM subscriptions WHERE org_id = ?1 LIMIT 1`).bind(auth.orgId).first<{ provider_customer_id: string | null }>();
   if (!subscription?.provider_customer_id) throw new HttpError(404, "No billing customer found");
   const origin = new URL(env.APP_ORIGIN);
+  if (origin.protocol !== "https:" || origin.hostname === "REPLACE_APP_DOMAIN") throw new HttpError(503, "Application origin is not configured");
   const params = new URLSearchParams();
   params.set("customer", subscription.provider_customer_id);
   params.set("return_url", `${origin.origin}/app/billing`);
@@ -112,8 +113,7 @@ async function verifyStripeWebhook(env: Env, body: string, signatureHeader: stri
   const { timestamp, signatures } = parseStripeSignature(signatureHeader);
   const now = Math.floor(Date.now() / 1000);
   if (Math.abs(now - timestamp) > 300) throw new HttpError(400, "Webhook timestamp outside tolerance");
-  const secret = await env.STRIPE_WEBHOOK_SECRET.get();
-  if (!secret) throw new HttpError(503, "Billing webhook is not configured");
+  const secret = await readRequiredSecret(env.STRIPE_WEBHOOK_SECRET, "Stripe webhook secret");
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(`${timestamp}.${body}`));
   const expected = hex(digest);
