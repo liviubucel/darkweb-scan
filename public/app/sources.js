@@ -161,7 +161,11 @@
   async function boot() {
     bind();
     await loadStatus();
-    if (location.hash === '#sources') await loadSources();
+    setTimeout(() => loadStatus().catch(() => undefined), 900);
+    if (location.hash === '#sources') {
+      document.querySelector('[data-view="sources"]')?.click();
+      await loadSources();
+    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => boot().catch(() => undefined));
