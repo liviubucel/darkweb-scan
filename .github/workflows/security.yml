@@ -16,7 +16,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
       - run: npm install --ignore-scripts
       - run: npm run typecheck
       - run: npm audit --audit-level=high
@@ -31,5 +30,12 @@ jobs:
         run: |
           if git grep -nEi '(api[_-]?key|secret|token)[[:space:]]*=[[:space:]]*["'"'][A-Za-z0-9_./+-]{16,}' -- ':!*.md'; then
             echo "Potential hard-coded credential detected"
+            exit 1
+          fi
+      - name: Reject legacy platform markers
+        shell: bash
+        run: |
+          if git grep -nEi '(robin|apurvsg|apurvsinghgautam|vercel|railway|streamlit|netlify)' -- ':!package-lock.json'; then
+            echo "Legacy project/platform marker detected"
             exit 1
           fi
