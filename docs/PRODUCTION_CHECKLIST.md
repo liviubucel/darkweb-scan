@@ -26,7 +26,8 @@ This file separates repository work from account-level configuration that cannot
 
 - [ ] Confirm the next Cloudflare Git deployment completes with the current `main` branch.
 - [ ] Confirm auto-provisioned D1, R2, AI Search, Flagship and Queues appear in the Worker bindings.
-- [ ] Run/confirm the D1 migration record with `bun run db:migrate` after the provisioned database exists.
+- [ ] After the first Git deployment, copy the production D1 database ID, R2 bucket name and Flagship app ID from the Cloudflare dashboard into `wrangler.jsonc` where those bindings support explicit identifiers. Cloudflare Git deployments can provision them, but the generated identifiers are not written back to the repository automatically.
+- [ ] Once D1 is pinned to its production database, run/confirm the formal migration record with `bun run db:migrate`. Runtime schema bootstrap already makes the first provisioned database usable before this step.
 - [ ] Add a native R2 lifecycle rule for the provisioned evidence bucket (90 days by default).
 - [ ] Create and bind the 768-dimension cosine Vectorize index if semantic correlation is required.
 - [ ] Onboard Cloudflare Email Service/Email Routing and verify the ZebraByte sender domain/address before adding the `EMAIL` binding.
