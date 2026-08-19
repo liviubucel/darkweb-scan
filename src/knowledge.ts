@@ -16,6 +16,7 @@ interface AiSearchNamespaceLike {
 }
 
 function namespace(env: Env): AiSearchNamespaceLike {
+  if (!env.AI_SEARCH) throw new HttpError(503, "AI Search is not configured");
   return env.AI_SEARCH as AiSearchNamespaceLike;
 }
 
@@ -52,6 +53,7 @@ export async function indexInvestigationKnowledge(
   summary: string,
   sources: ScrapedSource[],
 ): Promise<string | null> {
+  if (!env.AI_SEARCH) return null;
   const instance = await ensureTenantInstance(env, orgId);
   const sourceList = sources.slice(0, 20).map((source, index) => `- Source ${index + 1}: ${source.title || "Untitled"} [sha256:${source.sha256}]`).join("\n");
   const document = [
@@ -73,12 +75,14 @@ export async function indexInvestigationKnowledge(
 }
 
 export async function deleteInvestigationKnowledge(env: Env, orgId: string, itemId: string): Promise<void> {
+  if (!env.AI_SEARCH) return;
   const instance = namespace(env).get(await tenantInstanceId(orgId));
   await instance.items.delete(itemId);
 }
 
 export async function askTenantKnowledge(env: Env, orgId: string, rawQuery: unknown): Promise<{ answer: string; contextCount: number }> {
   const query = normalizeQuery(rawQuery, 1_000);
+  if (!env.AI_SEARCH) return { answer: "AI Search is not configured for this deployment yet.", contextCount: 0 };
   const instance = namespace(env).get(await tenantInstanceId(orgId));
   let chunks: unknown[] = [];
   try {
