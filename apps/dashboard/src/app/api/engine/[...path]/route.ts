@@ -1,23 +1,16 @@
-import { auth } from "@clerk/nextjs/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export const dynamic = "force-dynamic";
 
 async function forward(request: Request, context: { params: Promise<{ path: string[] }> }) {
   const { path = [] } = await context.params;
-  const isHealth = path.length === 1 && path[0] === "health";
-  if (!isHealth) {
-    const session = await auth();
-    if (!session.isAuthenticated) return Response.json({ error: "Authentication required" }, { status: 401 });
-  }
-
   const { env } = getCloudflareContext();
   const url = new URL(request.url);
   url.pathname = `/api/${path.map(encodeURIComponent).join("/")}`;
 
   const headers = new Headers(request.headers);
   headers.delete("host");
-  headers.set("x-zebrabyte-client", "darkweb-dashboard");
+  headers.set("x-zebrabyte-client", "exposure-intelligence-dashboard");
 
   const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
   const upstream = new Request(url.toString(), {
