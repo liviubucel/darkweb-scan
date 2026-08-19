@@ -23,6 +23,7 @@ import { browserMarkdown, validateClearWebUrl } from "./enrichment";
 import { askTenantKnowledge, deleteInvestigationKnowledge } from "./knowledge";
 import { consumeMonitoring, createWatchlist, deleteWatchlist, enqueueDueMonitoring, listWatchlists } from "./monitoring";
 import { consumeNotifications } from "./notifications";
+import { enforceEvidenceRetention } from "./retention";
 import { TorCollector } from "./container";
 import { HttpError, json, normalizeQuery, readJson, safeId, withSecurityHeaders } from "./security";
 import type { Env, InvestigationRequest, InvestigationWorkflowPayload, MonitoringJob, NotificationJob, Plan, QueueJob, WatchlistInput } from "./types";
@@ -263,6 +264,9 @@ export default {
   },
   async scheduled(_event: ScheduledController, env: Env): Promise<void> {
     await ensureDatabase(env);
-    await enqueueDueMonitoring(env);
+    await Promise.all([
+      enqueueDueMonitoring(env),
+      enforceEvidenceRetention(env),
+    ]);
   },
 } satisfies ExportedHandler<Env>;
