@@ -39,6 +39,25 @@ function normalizeOrgRole(role: string | undefined): string | undefined {
   if (!role) return undefined;
   return role.startsWith("org:") ? role : `org:${role}`;
 }
+function readSessionToken(request: Request): string {
+  const authorization = request.headers.get("authorization") ?? "";
+  if (authorization.startsWith("Bearer ")) {
+    const bearer = authorization.slice(7).trim();
+    if (bearer) return bearer;
+  }
+
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  for (const part of cookieHeader.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator < 1) continue;
+    const name = part.slice(0, separator).trim();
+    if (name !== "__session") continue;
+    const raw = part.slice(separator + 1).trim();
+    if (!raw) break;
+    try { return decodeURIComponent(raw); } catch { return raw; }
+  }
+  throw new HttpError(401, "Authentication required");
+}
 async function loadJwks(env: Env): Promise<Jwks> {
   const cacheKey = "clerk:jwks:v2";
   const cached = await env.CACHE.get(cacheKey, "json");
@@ -54,9 +73,7 @@ async function loadJwks(env: Env): Promise<Jwks> {
 }
 
 export async function authenticate(request: Request, env: Env): Promise<AuthContext> {
-  const authorization = request.headers.get("authorization") ?? "";
-  if (!authorization.startsWith("Bearer ")) throw new HttpError(401, "Authentication required");
-  const token = authorization.slice(7).trim();
+  const token = readSessionToken(request);
   const parts = token.split(".");
   if (parts.length !== 3) throw new HttpError(401, "Invalid token");
   const [encodedHeader, encodedClaims, encodedSignature] = parts;
