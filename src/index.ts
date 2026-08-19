@@ -1,5 +1,6 @@
 import { authenticate } from "./auth";
 import { track } from "./analytics";
+import { createBillingPortal, createCheckout, getBillingState, handleStripeWebhook } from "./billing";
 import { consumeInvestigationQuota, createInvestigation, getInvestigation, getPlan, getUsage, markStatus, refundInvestigationQuota } from "./db";
 import { InvestigationWorkflow } from "./workflow";
 import { browserMarkdown, validateClearWebUrl } from "./enrichment";
@@ -21,6 +22,10 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   if (request.method === "GET" && url.pathname === "/api/health") {
     return json({ ok: true, service: env.APP_NAME, version: env.CF_VERSION_METADATA.id, time: new Date().toISOString() });
   }
+  if (request.method === "POST" && url.pathname === "/api/stripe/webhook") {
+    return handleStripeWebhook(request, env);
+  }
+
   const auth = await authenticate(request, env);
   const plan = await getPlan(env, auth.orgId);
   await enforceRateLimit(env, auth.orgId, plan);
@@ -32,6 +37,23 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
 
   if (request.method === "GET" && url.pathname === "/api/usage") {
     return json(await getUsage(env, auth.orgId, plan));
+  }
+
+  if (request.method === "GET" && url.pathname === "/api/billing") {
+    return json(await getBillingState(env, auth.orgId));
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/billing/checkout") {
+    const body = await readJson<{ plan?: unknown }>(request, 2_048);
+    const session = await createCheckout(env, auth, body.plan);
+    track(env, "billing_checkout_created", auth.orgId, plan);
+    return json(session, 201);
+  }
+
+  if (request.method === "POST" && url.pathname === "/api/billing/portal") {
+    const portal = await createBillingPortal(env, auth);
+    track(env, "billing_portal_created", auth.orgId, plan);
+    return json(portal, 201);
   }
 
   if (request.method === "POST" && url.pathname === "/api/enrichment/clearweb") {
