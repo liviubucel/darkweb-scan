@@ -1,4 +1,4 @@
-import type { Artifact, BillingState, HealthState, Investigation, InvestigationSource, SessionState, Watchlist } from "@/lib/types";
+import type { Artifact, BillingState, ExposureFinding, ExposureStats, HealthState, Investigation, InvestigationSource, SessionState, Watchlist } from "@/lib/types";
 
 export class ApiError extends Error {
   status: number;
@@ -29,6 +29,7 @@ async function engineFetch<T>(path: string, init?: RequestInit): Promise<T> {
 export const engine = {
   health: () => engineFetch<HealthState>("/health"),
   me: () => engineFetch<SessionState>("/me"),
+  exposures: (limit = 100, offset = 0) => engineFetch<{ items: ExposureFinding[]; stats: ExposureStats; pagination: { limit: number; offset: number; nextOffset: number | null } }>(`/exposures?limit=${limit}&offset=${offset}`),
   investigations: (limit = 50, offset = 0) => engineFetch<{ items: Investigation[]; pagination: { limit: number; offset: number; nextOffset: number | null } }>(`/investigations?limit=${limit}&offset=${offset}`),
   investigation: (id: string) => engineFetch<Investigation>(`/investigations/${encodeURIComponent(id)}`),
   sources: (id: string) => engineFetch<{ items: InvestigationSource[] }>(`/investigations/${encodeURIComponent(id)}/sources`),
