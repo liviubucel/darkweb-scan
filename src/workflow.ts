@@ -6,6 +6,7 @@ import { markStatus, setInvestigationKnowledgeItem } from "./db";
 import { detectMonitoringDelta } from "./detection";
 import { enqueueDueDiscovery, searchOnionIndex } from "./discovery";
 import { indexSource, persistEvidence } from "./intelligence";
+import { loadIndexedEvidence } from "./indexed-evidence";
 import { indexInvestigationKnowledge } from "./knowledge";
 import type { Env, InvestigationWorkflowPayload, NotificationJob, ScrapedSource } from "./types";
 import type { TorCollector } from "./container";
@@ -31,11 +32,20 @@ export class InvestigationWorkflow extends WorkflowEntrypoint<Env, Investigation
       }
 
       const selected = await step.do("rank-index-results", async () => rankHits(this.env, payload.query, hits, maxSources));
-      const sources = await step.do("scrape-selected-sources", { retries: { limit: 2, delay: "15 seconds", backoff: "exponential" }, timeout: "5 minutes" }, async () => {
+      const sources = await step.do("collect-selected-evidence", { retries: { limit: 2, delay: "15 seconds", backoff: "exponential" }, timeout: "5 minutes" }, async () => {
         if (!selected.length) return [];
-        const collector = getContainer<TorCollector>(this.env.TOR_COLLECTOR, TOR_COLLECTOR_ID);
-        const raw = (await collector.runRequest("/scrape", { urls: selected.map((hit) => hit.url) })) as ScrapeResponse;
-        return Array.isArray(raw.sources) ? raw.sources.slice(0, maxSources) : [];
+        const urls = selected.map((hit) => hit.url);
+        try {
+          const collector = getContainer<TorCollector>(this.env.TOR_COLLECTOR, TOR_COLLECTOR_ID);
+          const raw = (await collector.runRequest("/scrape", { urls })) as ScrapeResponse;
+          const live = Array.isArray(raw.sources) ? raw.sources.slice(0, maxSources) : [];
+          if (live.length) return live;
+        } catch (error) {
+          console.warn("tor_live_refresh_unavailable", error instanceof Error ? error.message : "unknown");
+        }
+        // First failover is always our own D1 index. External discovery APIs are
+        // intentionally not required for normal operation.
+        return loadIndexedEvidence(this.env, urls, maxSources);
       });
       const analysis = sources.length
         ? await step.do("analyze-grounded-evidence", async () => summarizeInvestigation(this.env, payload.query, sources))
