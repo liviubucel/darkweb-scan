@@ -74,6 +74,7 @@ export interface Env {
   CLERK_ISSUER: string;
   CLERK_JWKS_URL: string;
   CLERK_AUDIENCE: string;
+  CLERK_AUTHORIZED_PARTIES: string;
   EVIDENCE_RETENTION_DAYS: string;
   MAX_SELECTED_SOURCES: string;
   MAX_QUERY_CHARS: string;
