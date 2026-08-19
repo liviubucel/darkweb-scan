@@ -6,6 +6,9 @@
   "compatibility_flags": ["nodejs_compat"],
   "keep_vars": true,
   "observability": { "enabled": true },
+  "routes": [
+    { "pattern": "darkweb.zebrabyte.ro", "custom_domain": true }
+  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
