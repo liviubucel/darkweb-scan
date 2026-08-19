@@ -13,7 +13,7 @@ tor --RunAsDaemon 1 \
 attempt=0
 until grep -q "Bootstrapped 100%" /var/log/tor/notices.log 2>/dev/null; do
   attempt=$((attempt + 1))
-  if [ "$attempt" -ge 30 ]; then
+  if [ "$attempt" -ge 75 ]; then
     echo "Tor bootstrap failed" >&2
     exit 1
   fi
