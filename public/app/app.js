@@ -102,7 +102,7 @@
 
   const labels = {
     overview: 'Overview', new: 'New investigation', investigations: 'Investigations',
-    detail: 'Investigation', monitoring: 'Monitoring', intelligence: 'Intelligence',
+    detail: 'Investigation', monitoring: 'Monitoring', sources: 'Sources', intelligence: 'Intelligence',
   };
 
   function showView(name) {
@@ -231,9 +231,14 @@
       $('health-badge').className = `health-badge ${health.ready ? 'ok' : ''}`;
       $('posture-db').textContent = health.configuration?.database ? 'Connected' : 'Unavailable';
       $('posture-ai').textContent = 'Native';
+      if ($('posture-index')) {
+        const pages = Number(health.configuration?.indexedPages || 0);
+        const sources = Number(health.configuration?.discoverySources || 0);
+        $('posture-index').textContent = pages > 0 ? `${pages} indexed` : sources > 0 ? 'Seeded' : 'Awaiting seeds';
+      }
       const pending = [];
       if (!health.configuration?.authentication) pending.push('authentication');
-      if (!health.configuration?.onionSearchConfigBound) pending.push('onion search configuration');
+      if (!health.configuration?.discoveryReady) pending.push('crawler seed sources');
       $('posture-message').textContent = pending.length ? `Production readiness pending: ${pending.join(', ')}.` : 'Production dependencies are configured.';
       return health;
     } catch (error) {
@@ -254,7 +259,7 @@
     } catch (error) {
       const authConfigured = state.health?.configuration?.authentication;
       if (error.status === 401) {
-        showAuthGate('A valid ZebraByte session is required to use the investigation workspace.', 'Authentication is enforced by the Worker API; no anonymous scans are permitted.');
+        showAuthGate('Redirecting to ZebraByte sign-in…', 'Authentication is enforced by the Worker API; no anonymous scans are permitted.');
       } else if (error.status === 503 && !authConfigured) {
         showAuthGate('Authentication has not been configured for this deployment yet.', 'Configure the Clerk issuer and JWKS bindings in Cloudflare before enabling customer access.');
       } else {
@@ -282,7 +287,7 @@
       await Promise.all([loadInvestigations(), loadWatchlists()]);
       if (!silent) toast('Workspace refreshed.', 'success');
     } catch (error) {
-      if (error.status === 401) showAuthGate('Your session has expired.', 'Sign in again, then check the session.');
+      if (error.status === 401) showAuthGate('Your session has expired.', 'Redirecting to ZebraByte sign-in…');
       else if (!silent) toast(error.message, 'error');
     }
   }
@@ -353,7 +358,7 @@
       await loadInvestigations().catch(() => undefined);
       openDetail(result.id);
     } catch (error) {
-      if (error.status === 401) showAuthGate('Your session has expired.', 'Authenticate again before starting an investigation.');
+      if (error.status === 401) showAuthGate('Your session has expired.', 'Redirecting to ZebraByte sign-in…');
       else toast(error.message, 'error');
     } finally {
       button.disabled = false;
@@ -430,13 +435,17 @@
       } catch (error) { toast(error.message, 'error'); button.disabled = false; }
     });
     $('auth-retry').addEventListener('click', async () => {
+      if (window.ZebraByteAuth?.signIn) {
+        await window.ZebraByteAuth.signIn();
+        return;
+      }
       $('auth-retry').disabled = true;
       $('auth-retry').textContent = 'Checking…';
       await loadHealth();
       const ok = await loadSession();
       if (ok) await refreshWorkspace({ silent: true });
       $('auth-retry').disabled = false;
-      $('auth-retry').textContent = 'Check session';
+      $('auth-retry').textContent = 'Sign in';
     });
     $('mobile-menu').addEventListener('click', () => { $('sidebar').classList.add('open'); $('mobile-shade').classList.add('show'); });
     $('mobile-close').addEventListener('click', closeMobileNav);
@@ -447,7 +456,7 @@
     bindEvents();
     updateWatchDefaults();
     const hashView = location.hash.replace('#', '');
-    if (['overview', 'new', 'investigations', 'monitoring', 'intelligence'].includes(hashView)) showView(hashView);
+    if (['overview', 'new', 'investigations', 'monitoring', 'sources', 'intelligence'].includes(hashView)) showView(hashView);
     await loadHealth();
     const authenticated = await loadSession();
     if (!authenticated) return;
