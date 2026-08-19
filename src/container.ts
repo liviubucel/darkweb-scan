@@ -5,7 +5,7 @@ export class TorCollector extends Container {
   requiredPorts = [8080];
   sleepAfter = "10s";
   enableInternet = true;
-  pingEndpoint = "health";
+  pingEndpoint = "localhost/health";
 
   private operationTail: Promise<void> = Promise.resolve();
 
