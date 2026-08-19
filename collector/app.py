@@ -17,7 +17,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 MAX_PAGE_BYTES = 1_500_000
-MAX_TEXT_CHARS = 120_000
+MAX_TEXT_CHARS = 60_000
+MAX_SCRAPE_RESPONSE_BYTES = 700_000
 MAX_RESULTS = 60
 MAX_SCRAPE_URLS = 12
 REQUEST_TIMEOUT = (8, 25)
@@ -194,6 +195,31 @@ def _search_engine(engine: dict[str, str], query: str) -> list[dict[str, str]]:
     return _parse_search_html(content, final_url, engine["name"])
 
 
+def _bounded_sources(urls: list[str], completed: dict[str, dict[str, str]]) -> list[dict[str, str]]:
+    sources: list[dict[str, str]] = []
+    used = len(b'{"sources":[]}')
+    for requested_url in urls:
+        source = completed.get(requested_url)
+        if not source:
+            continue
+        candidate = dict(source)
+        without_text = dict(candidate)
+        without_text["text"] = ""
+        overhead = len(json.dumps(without_text, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) + 2
+        remaining = MAX_SCRAPE_RESPONSE_BYTES - used - overhead
+        if remaining <= 0:
+            break
+        text_bytes = candidate.get("text", "").encode("utf-8")
+        if len(text_bytes) > remaining:
+            candidate["text"] = text_bytes[:remaining].decode("utf-8", errors="ignore")
+        encoded_size = len(json.dumps(candidate, ensure_ascii=False, separators=(",", ":")).encode("utf-8")) + 1
+        if used + encoded_size > MAX_SCRAPE_RESPONSE_BYTES:
+            break
+        sources.append(candidate)
+        used += encoded_size
+    return sources
+
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {"ok": True, "collector": "tor", "mode": "defensive"}
@@ -250,12 +276,15 @@ def scrape(request: ScrapeRequest) -> dict[str, Any]:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         if validated not in urls:
             urls.append(validated)
-    sources: list[dict[str, str]] = []
+
+    completed: dict[str, dict[str, str]] = {}
     with ThreadPoolExecutor(max_workers=min(4, len(urls))) as executor:
         futures = {executor.submit(_scrape_one, url): url for url in urls}
         for future in as_completed(futures):
+            requested_url = futures[future]
             try:
-                sources.append(future.result())
+                completed[requested_url] = future.result()
             except Exception:
                 continue
-    return {"sources": sources}
+
+    return {"sources": _bounded_sources(urls, completed)}
