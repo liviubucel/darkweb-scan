@@ -5,6 +5,9 @@
   "compatibility_date": "2026-08-19",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  "routes": [
+    { "pattern": "darkweb.zebrabyte.ro", "custom_domain": true }
+  ],
   "keep_vars": true,
   "observability": { "enabled": true },
   "triggers": { "crons": ["7 * * * *"] },
