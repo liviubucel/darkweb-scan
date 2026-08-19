@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/components/system/query-provider";
+import { RuntimeClerkProvider } from "@/components/system/runtime-clerk-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: { default: "Dark Web Intelligence — ZebraByte", template: "%s — ZebraByte" },
-  description: "Defensive dark web investigations, monitoring and evidence-grounded threat intelligence.",
+  title: { default: "Exposure Intelligence — ZebraByte", template: "%s — ZebraByte" },
+  description: "Exposure intelligence, monitoring and evidence-grounded security investigations for approved assets.",
   robots: { index: false, follow: false }
 };
 
@@ -14,10 +14,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ClerkProvider>
+        <RuntimeClerkProvider>
           <QueryProvider>{children}</QueryProvider>
           <Toaster theme="dark" position="bottom-right" richColors closeButton />
-        </ClerkProvider>
+        </RuntimeClerkProvider>
       </body>
     </html>
   );
