@@ -70,16 +70,23 @@ export async function listInvestigationArtifacts(env: Env, orgId: string, invest
   return result.results;
 }
 
-export async function getInvestigationDeletionTargets(env: Env, orgId: string, investigationId: string): Promise<{ sourceIds: string[]; objectKeys: string[] }> {
-  const [sources, reports] = await env.DB.batch([
+export async function setInvestigationKnowledgeItem(env: Env, orgId: string, investigationId: string, itemId: string): Promise<void> {
+  await env.DB.prepare(`UPDATE investigations SET ai_search_item_id = ?1, updated_at = ?2 WHERE id = ?3 AND org_id = ?4`).bind(itemId, new Date().toISOString(), investigationId, orgId).run();
+}
+
+export async function getInvestigationDeletionTargets(env: Env, orgId: string, investigationId: string): Promise<{ sourceIds: string[]; objectKeys: string[]; aiSearchItemId: string | null }> {
+  const [sources, reports, investigation] = await env.DB.batch([
     env.DB.prepare(`SELECT id, r2_key FROM investigation_sources WHERE investigation_id = ?1 AND org_id = ?2`).bind(investigationId, orgId),
     env.DB.prepare(`SELECT r2_key FROM reports WHERE investigation_id = ?1 AND org_id = ?2`).bind(investigationId, orgId),
+    env.DB.prepare(`SELECT ai_search_item_id FROM investigations WHERE id = ?1 AND org_id = ?2 LIMIT 1`).bind(investigationId, orgId),
   ]);
   const sourceRows = (sources.results ?? []) as Array<{ id?: unknown; r2_key?: unknown }>;
   const reportRows = (reports.results ?? []) as Array<{ r2_key?: unknown }>;
+  const investigationRows = (investigation.results ?? []) as Array<{ ai_search_item_id?: unknown }>;
   const sourceIds = sourceRows.map((row) => typeof row.id === "string" ? row.id : "").filter(Boolean);
   const objectKeys = [...sourceRows, ...reportRows].map((row) => typeof row.r2_key === "string" ? row.r2_key : "").filter(Boolean);
-  return { sourceIds, objectKeys };
+  const itemValue = investigationRows[0]?.ai_search_item_id;
+  return { sourceIds, objectKeys, aiSearchItemId: typeof itemValue === "string" && itemValue ? itemValue : null };
 }
 
 export async function deleteInvestigationRecords(env: Env, auth: AuthContext, investigationId: string): Promise<boolean> {
