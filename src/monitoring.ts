@@ -72,9 +72,21 @@ function nextDate(from: string | Date, intervalHours: number): string {
 }
 
 function queryForWatchlist(row: Pick<WatchlistRow, "type" | "value">): string {
-  if (row.type === "domain") return `"${row.value}"`;
-  if (row.type === "email") return `"${row.value}"`;
+  if (row.type === "domain" || row.type === "email") return `"${row.value}"`;
   return row.value;
+}
+
+async function sendMonitoringJob(env: Env, job: MonitoringJob): Promise<void> {
+  await env.MONITORING.send(job);
+}
+
+async function persistAndSendRun(env: Env, row: Pick<WatchlistRow, "id" | "org_id">, runAt: string): Promise<void> {
+  const runId = `${row.id}:${runAt}`;
+  const job: MonitoringJob = { type: "monitoring.run", runId, watchlistId: row.id, orgId: row.org_id };
+  const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO jobs (id, org_id, type, status, payload_json, created_at, updated_at) VALUES (?1, ?2, 'monitoring.run', 'queued', ?3, ?4, ?4)`).bind(runId, row.org_id, JSON.stringify(job), runAt).run();
+  if ((inserted.meta.changes ?? 0) === 1) {
+    await sendMonitoringJob(env, job).catch(() => undefined);
+  }
 }
 
 export async function createWatchlist(env: Env, auth: AuthContext, plan: Plan, input: WatchlistInput): Promise<WatchlistRow> {
@@ -84,15 +96,18 @@ export async function createWatchlist(env: Env, auth: AuthContext, plan: Plan, i
   const profile = input.profile && ["general", "identity", "corporate", "ransomware"].includes(input.profile) ? input.profile : defaultProfile(type);
   const id = crypto.randomUUID();
   const now = new Date().toISOString();
+  const nextRunAt = nextDate(now, intervalHours);
 
   try {
-    await env.DB.prepare(`INSERT INTO watchlists (id, org_id, created_by, type, value, profile, interval_hours, active, next_run_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, ?8, ?8)`).bind(id, auth.orgId, auth.userId, type, value, profile, intervalHours, now).run();
+    await env.DB.prepare(`INSERT INTO watchlists (id, org_id, created_by, type, value, profile, interval_hours, active, next_run_at, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 1, ?8, ?9, ?9)`).bind(id, auth.orgId, auth.userId, type, value, profile, intervalHours, nextRunAt, now).run();
   } catch {
     throw new HttpError(409, "This watchlist already exists");
   }
 
-  const row = await env.DB.prepare(`SELECT * FROM watchlists WHERE id = ?1 AND org_id = ?2`).bind(id, auth.orgId).first<WatchlistRow>();
+  const row = await env.DB.prepare(`SELECT id, org_id, created_by, type, value, profile, interval_hours, active, last_run_at, last_investigation_id, next_run_at, created_at, updated_at FROM watchlists WHERE id = ?1 AND org_id = ?2`).bind(id, auth.orgId).first<WatchlistRow>();
   if (!row) throw new HttpError(500, "Could not create watchlist");
+
+  await persistAndSendRun(env, row, now);
   return row;
 }
 
@@ -108,10 +123,6 @@ export async function deleteWatchlist(env: Env, auth: AuthContext, id: string): 
   return true;
 }
 
-async function sendMonitoringJob(env: Env, job: MonitoringJob): Promise<void> {
-  await env.MONITORING.send(job);
-}
-
 export async function enqueueDueMonitoring(env: Env): Promise<void> {
   const now = new Date().toISOString();
 
@@ -122,18 +133,16 @@ export async function enqueueDueMonitoring(env: Env): Promise<void> {
       const job = JSON.parse(row.payload_json) as MonitoringJob;
       if (job.type === "monitoring.run" && job.runId && job.watchlistId && job.orgId) await sendMonitoringJob(env, job);
     } catch {
-      // Malformed internal jobs are ignored and can be inspected through audit/ops tooling.
+      // Malformed internal jobs remain visible to operations tooling.
     }
   }
 
   const due = await env.DB.prepare(`SELECT id, org_id, created_by, type, value, profile, interval_hours, active, last_run_at, last_investigation_id, next_run_at, created_at, updated_at FROM watchlists WHERE active = 1 AND next_run_at <= ?1 ORDER BY next_run_at ASC LIMIT 50`).bind(now).all<WatchlistRow>();
 
   for (const row of due.results) {
-    const runId = `${row.id}:${row.next_run_at}`;
-    const job: MonitoringJob = { type: "monitoring.run", runId, watchlistId: row.id, orgId: row.org_id };
-    const inserted = await env.DB.prepare(`INSERT OR IGNORE INTO jobs (id, org_id, type, status, payload_json, created_at, updated_at) VALUES (?1, ?2, 'monitoring.run', 'queued', ?3, ?4, ?4)`).bind(runId, row.org_id, JSON.stringify(job), now).run();
-    if ((inserted.meta.changes ?? 0) === 1) await sendMonitoringJob(env, job);
-    await env.DB.prepare(`UPDATE watchlists SET next_run_at = ?1, updated_at = ?2 WHERE id = ?3 AND org_id = ?4`).bind(nextDate(row.next_run_at, row.interval_hours), now, row.id, row.org_id).run();
+    const scheduledAt = row.next_run_at;
+    await persistAndSendRun(env, row, scheduledAt);
+    await env.DB.prepare(`UPDATE watchlists SET next_run_at = ?1, updated_at = ?2 WHERE id = ?3 AND org_id = ?4`).bind(nextDate(scheduledAt, row.interval_hours), now, row.id, row.org_id).run();
   }
 }
 
@@ -213,7 +222,7 @@ export async function consumeMonitoring(batch: MessageBatch<MonitoringJob>, env:
         env.DB.prepare(`UPDATE watchlists SET last_run_at = ?1, last_investigation_id = ?2, updated_at = ?1 WHERE id = ?3 AND org_id = ?4`).bind(now, investigationId, row.id, row.org_id),
         env.DB.prepare(`UPDATE jobs SET status = 'completed', payload_json = ?1, updated_at = ?2 WHERE id = ?3`).bind(JSON.stringify({ ...job, investigationId }), now, job.runId),
       ]);
-      track(env, "monitoring_investigation_created", row.org_id, plan, [row.interval_hours]);
+      await track(env, "monitoring_investigation_created", row.org_id, plan, [row.interval_hours]);
       message.ack();
     } catch {
       await env.DB.prepare(`UPDATE jobs SET status = 'queued', updated_at = ?1 WHERE id = ?2`).bind(new Date().toISOString(), job.runId).run().catch(() => undefined);
