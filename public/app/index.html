@@ -20,19 +20,13 @@
         <button class="mobile-close" id="mobile-close" type="button" aria-label="Close navigation">×</button>
       </div>
 
-      <div class="workspace-switcher">
-        <span class="workspace-avatar">ZB</span>
-        <span><strong>ZebraByte</strong><small>Security workspace</small></span>
-        <span class="workspace-chevron">⌄</span>
-      </div>
-
-      <p class="nav-section-label">Threat intelligence</p>
       <nav class="nav" aria-label="Workspace navigation">
-        <button class="nav-item active" data-view="overview" type="button"><span class="nav-icon"><i></i></span><span>Threat Command</span></button>
-        <button class="nav-item" data-view="new" type="button"><span class="nav-icon"><i></i></span><span>New investigation</span></button>
-        <button class="nav-item" data-view="investigations" type="button"><span class="nav-icon"><i></i></span><span>Investigations</span></button>
-        <button class="nav-item" data-view="monitoring" type="button"><span class="nav-icon"><i></i></span><span>Monitoring</span></button>
-        <button class="nav-item" data-view="intelligence" type="button"><span class="nav-icon"><i></i></span><span>Intelligence</span></button>
+        <button class="nav-item active" data-view="overview" type="button"><span class="nav-icon">⌂</span><span>Overview</span></button>
+        <button class="nav-item" data-view="new" type="button"><span class="nav-icon">＋</span><span>New investigation</span></button>
+        <button class="nav-item" data-view="investigations" type="button"><span class="nav-icon">◎</span><span>Investigations</span></button>
+        <button class="nav-item" data-view="monitoring" type="button"><span class="nav-icon">◫</span><span>Monitoring</span></button>
+        <button class="nav-item" data-view="sources" type="button"><span class="nav-icon">⌗</span><span>Sources</span></button>
+        <button class="nav-item" data-view="intelligence" type="button"><span class="nav-icon">✦</span><span>Intelligence</span></button>
       </nav>
 
       <div class="sidebar-spacer"></div>
@@ -51,9 +45,9 @@
     <div class="workspace">
       <header class="workspace-topbar">
         <button class="mobile-menu" id="mobile-menu" type="button" aria-label="Open navigation">☰</button>
-        <div class="crumb"><span>Dark Web Intelligence</span><span>/</span><strong id="crumb-label">Threat Command</strong></div>
+        <div class="crumb"><span>Dark Web Intelligence</span><span>/</span><strong id="crumb-label">Overview</strong></div>
         <div class="topbar-actions">
-          <span class="environment"><i></i> PRODUCTION</span>
+          <span class="environment">PRODUCTION</span>
           <span class="identity" id="identity-label">Checking session…</span>
         </div>
       </header>
@@ -61,15 +55,15 @@
       <main class="content" id="content">
         <section class="view active" data-view-panel="overview">
           <div class="page-head">
-            <div><p class="eyebrow">THREAT INTELLIGENCE</p><h1>Threat Command</h1><p class="page-subtitle">Operational view of investigations, exposure findings and continuous monitoring.</p></div>
+            <div><p class="eyebrow">DEFENSIVE THREAT INTELLIGENCE</p><h1>Exposure workspace</h1><p class="page-subtitle">Investigate approved identities, domains, brands and threat indicators using evidence-grounded workflows.</p></div>
             <button class="button primary" type="button" data-go="new">New investigation</button>
           </div>
 
           <div class="stats-grid">
-            <article class="stat-card"><div><span>Total investigations</span><small id="stat-total-note">Loading history</small></div><strong id="stat-total">—</strong></article>
-            <article class="stat-card"><div><span>Active workflows</span><small>Queued and running</small></div><strong id="stat-running">—</strong></article>
-            <article class="stat-card"><div><span>High-risk findings</span><small>High or critical</small></div><strong id="stat-risk">—</strong></article>
-            <article class="stat-card"><div><span>Monitoring targets</span><small>Continuous watchlists</small></div><strong id="stat-watchlists">—</strong></article>
+            <article class="stat-card"><span>Total investigations</span><strong id="stat-total">—</strong><small id="stat-total-note">Loading history</small></article>
+            <article class="stat-card"><span>Running now</span><strong id="stat-running">—</strong><small>Queued and active workflows</small></article>
+            <article class="stat-card"><span>Elevated risk</span><strong id="stat-risk">—</strong><small>High or critical findings</small></article>
+            <article class="stat-card"><span>Watchlists</span><strong id="stat-watchlists">—</strong><small>Continuous monitoring targets</small></article>
           </div>
 
           <div class="dashboard-grid">
@@ -80,9 +74,10 @@
             <section class="panel posture-panel">
               <div class="panel-head"><div><p class="panel-kicker">PLATFORM</p><h2>Operational posture</h2></div><span class="health-badge" id="health-badge">Checking</span></div>
               <dl class="posture-list">
-                <div><dt>Workers AI</dt><dd id="posture-ai">Native</dd></div>
-                <div><dt>D1 intelligence store</dt><dd id="posture-db">Checking</dd></div>
+                <div><dt>Cloudflare Workers AI</dt><dd id="posture-ai">Native</dd></div>
+                <div><dt>D1 evidence index</dt><dd id="posture-db">Checking</dd></div>
                 <div><dt>Tor collector</dt><dd>On demand</dd></div>
+                <div><dt>In-house onion index</dt><dd id="posture-index">Checking</dd></div>
                 <div><dt>Evidence retention</dt><dd>90 days</dd></div>
               </dl>
               <p class="muted-small" id="posture-message">Checking production readiness…</p>
@@ -91,61 +86,117 @@
         </section>
 
         <section class="view" data-view-panel="new">
-          <div class="page-head narrow-head"><div><p class="eyebrow">INVESTIGATIONS</p><h1>New investigation</h1><p class="page-subtitle">Search only assets, identities and indicators you are authorized to investigate.</p></div></div>
+          <div class="page-head narrow-head"><div><p class="eyebrow">NEW INVESTIGATION</p><h1>Search the dark web</h1><p class="page-subtitle">Search only for assets, identities and indicators you are authorized to investigate.</p></div></div>
           <section class="panel investigation-form-panel">
-            <div class="panel-head"><div><p class="panel-kicker">SEARCH TARGET</p><h2>Investigation parameters</h2></div><span class="evidence-label">Defensive collection</span></div>
             <form id="investigation-form">
-              <label class="field wide"><span>Target</span><input id="investigation-query" name="query" type="text" minlength="2" maxlength="300" autocomplete="off" placeholder="example.com, security@example.com, organization or approved keyword" required><small>Do not enter passwords, credentials or raw secrets.</small></label>
+              <label class="field wide"><span>Search target</span><input id="investigation-query" name="query" type="text" minlength="2" maxlength="300" autocomplete="off" placeholder="example.com, security@example.com, organization or approved keyword" required><small>Do not enter passwords, credentials or raw secrets.</small></label>
               <div class="form-row">
-                <label class="field"><span>Profile</span><select id="investigation-profile" name="profile"><option value="general">General intelligence</option><option value="identity">Identity exposure</option><option value="corporate">Corporate exposure</option><option value="ransomware">Ransomware signals</option></select></label>
-                <div class="field scope-note"><span>Collection scope</span><div><strong>Authorized defensive use only</strong><small>Evidence is bounded, fingerprinted and summarized.</small></div></div>
+                <label class="field"><span>Investigation profile</span><select id="investigation-profile" name="profile"><option value="general">General intelligence</option><option value="identity">Identity exposure</option><option value="corporate">Corporate exposure</option><option value="ransomware">Ransomware signals</option></select></label>
+                <div class="field scope-note"><span>Collection scope</span><div><strong>Defensive only</strong><small>Evidence is collected and summarized without reproducing unnecessary sensitive data.</small></div></div>
               </div>
-              <div class="form-actions"><span class="quota-note" id="new-quota-note">Checking monthly quota…</span><button class="button primary" id="start-investigation" type="submit">Start investigation</button></div>
+              <div class="form-actions"><span class="quota-note" id="new-quota-note">Checking monthly quota…</span><button class="button primary large" id="start-investigation" type="submit">Start investigation</button></div>
             </form>
           </section>
           <div class="method-grid">
-            <article><span>01</span><h3>Discover</h3><p>Query approved dark-web indexes through the isolated collector.</p></article>
-            <article><span>02</span><h3>Collect</h3><p>Retain a bounded evidence set with cryptographic fingerprints.</p></article>
-            <article><span>03</span><h3>Analyze</h3><p>Workers AI produces evidence-grounded assessment and severity.</p></article>
-            <article><span>04</span><h3>Correlate</h3><p>Indicators become searchable organization intelligence.</p></article>
+            <article><span>01</span><h3>Discover</h3><p>Search the private ZebraByte onion index built continuously by the in-house Tor crawler.</p></article>
+            <article><span>02</span><h3>Collect</h3><p>Refresh selected onion pages directly through Tor and retain bounded evidence fingerprints.</p></article>
+            <article><span>03</span><h3>Analyze</h3><p>Cloudflare Workers AI ranks and summarizes evidence with deterministic guardrails.</p></article>
+            <article><span>04</span><h3>Correlate</h3><p>Indicators become searchable organization knowledge without exposing raw secrets.</p></article>
           </div>
         </section>
 
         <section class="view" data-view-panel="investigations">
-          <div class="page-head"><div><p class="eyebrow">INVESTIGATIONS</p><h1>Investigation history</h1><p class="page-subtitle">Review findings, evidence references and workflow state for the active workspace.</p></div><button class="button primary" data-go="new" type="button">New investigation</button></div>
+          <div class="page-head"><div><p class="eyebrow">INVESTIGATION HISTORY</p><h1>Investigations</h1><p class="page-subtitle">Review findings, evidence references and workflow status for your organization.</p></div><button class="button primary" data-go="new" type="button">New investigation</button></div>
           <section class="panel table-panel">
-            <div class="toolbar"><label class="search-box"><span>Search</span><input id="investigation-filter" type="search" placeholder="Domain, identity, profile or status"></label><button class="button secondary small" id="refresh-investigations" type="button">Refresh</button></div>
+            <div class="toolbar">
+              <label class="search-box"><span>⌕</span><input id="investigation-filter" type="search" placeholder="Filter investigations"></label>
+              <button class="button secondary small" id="refresh-investigations" type="button">Refresh</button>
+            </div>
             <div id="investigations-list" class="record-list full"><div class="empty">No investigations loaded.</div></div>
           </section>
         </section>
 
         <section class="view" data-view-panel="detail">
-          <div class="detail-top"><button class="back-button" id="detail-back" type="button">← Investigations</button><div class="detail-actions"><button class="button danger small" id="delete-investigation" type="button">Delete investigation</button></div></div>
+          <div class="detail-top">
+            <button class="back-button" id="detail-back" type="button">← Investigations</button>
+            <div class="detail-actions"><button class="button danger small" id="delete-investigation" type="button">Delete</button></div>
+          </div>
           <div class="page-head detail-head"><div><p class="eyebrow">INVESTIGATION</p><h1 id="detail-query">—</h1><div class="detail-meta"><span id="detail-status" class="status-pill">—</span><span id="detail-profile">—</span><span id="detail-created">—</span></div></div></div>
-          <div class="detail-metrics"><article><span>Risk level</span><strong id="detail-risk">—</strong></article><article><span>Sources</span><strong id="detail-source-count">—</strong></article><article><span>Indicators</span><strong id="detail-artifact-count">—</strong></article><article><span>Origin</span><strong id="detail-origin">—</strong></article></div>
-          <section class="panel summary-panel"><div class="panel-head"><div><p class="panel-kicker">ASSESSMENT</p><h2>Grounded analysis</h2></div><span class="evidence-label">Workers AI</span></div><div id="detail-summary" class="summary-copy">Waiting for analysis.</div></section>
-          <div class="detail-columns"><section class="panel"><div class="panel-head"><div><p class="panel-kicker">EVIDENCE</p><h2>Sources</h2></div><span id="source-count-label" class="count-label">0</span></div><div id="detail-sources" class="evidence-list"><div class="empty compact">No sources retained yet.</div></div></section><section class="panel"><div class="panel-head"><div><p class="panel-kicker">INDICATORS</p><h2>Artifacts</h2></div><span id="artifact-count-label" class="count-label">0</span></div><div id="detail-artifacts" class="artifact-list"><div class="empty compact">No indicators extracted yet.</div></div></section></div>
+          <div class="detail-metrics">
+            <article><span>Risk level</span><strong id="detail-risk">—</strong></article>
+            <article><span>Sources</span><strong id="detail-source-count">—</strong></article>
+            <article><span>Indicators</span><strong id="detail-artifact-count">—</strong></article>
+            <article><span>Origin</span><strong id="detail-origin">—</strong></article>
+          </div>
+          <section class="panel summary-panel"><div class="panel-head"><div><p class="panel-kicker">GROUNDED ASSESSMENT</p><h2>Workers AI summary</h2></div><span class="evidence-label">Evidence grounded</span></div><div id="detail-summary" class="summary-copy">Waiting for analysis.</div></section>
+          <div class="detail-columns">
+            <section class="panel"><div class="panel-head"><div><p class="panel-kicker">EVIDENCE</p><h2>Sources</h2></div><span id="source-count-label" class="count-label">0</span></div><div id="detail-sources" class="evidence-list"><div class="empty compact">No sources retained yet.</div></div></section>
+            <section class="panel"><div class="panel-head"><div><p class="panel-kicker">INDICATORS</p><h2>Artifacts</h2></div><span id="artifact-count-label" class="count-label">0</span></div><div id="detail-artifacts" class="artifact-list"><div class="empty compact">No indicators extracted yet.</div></div></section>
+          </div>
         </section>
 
         <section class="view" data-view-panel="monitoring">
-          <div class="page-head"><div><p class="eyebrow">MONITORING</p><h1>Continuous monitoring</h1><p class="page-subtitle">Schedule recurring investigations for approved domains, identities, brands and keywords.</p></div></div>
+          <div class="page-head"><div><p class="eyebrow">CONTINUOUS MONITORING</p><h1>Watchlists</h1><p class="page-subtitle">Schedule recurring defensive investigations for approved domains, emails, brands, people and keywords.</p></div></div>
           <div class="monitoring-grid">
-            <section class="panel watch-form-panel"><div class="panel-head"><div><p class="panel-kicker">NEW TARGET</p><h2>Add watchlist</h2></div></div><form id="watchlist-form"><label class="field"><span>Target type</span><select id="watch-type"><option value="domain">Domain</option><option value="email">Email</option><option value="brand">Brand</option><option value="person">Person</option><option value="keyword">Keyword</option></select></label><label class="field"><span>Target</span><input id="watch-value" type="text" maxlength="200" placeholder="example.com" required></label><label class="field"><span>Interval</span><select id="watch-interval"><option value="24">Every 24 hours</option><option value="12">Every 12 hours</option><option value="6">Every 6 hours</option><option value="1">Every hour</option></select></label><label class="field"><span>Profile</span><select id="watch-profile"><option value="corporate">Corporate exposure</option><option value="identity">Identity exposure</option><option value="general">General intelligence</option><option value="ransomware">Ransomware signals</option></select></label><button class="button primary" id="create-watchlist" type="submit">Create watchlist</button><p class="muted-small">Minimum monitoring interval is enforced by the active plan.</p></form></section>
-            <section class="panel watch-list-panel"><div class="panel-head"><div><p class="panel-kicker">ACTIVE TARGETS</p><h2>Watchlists</h2></div><button class="text-button" id="refresh-watchlists" type="button">Refresh</button></div><div id="watchlists-list" class="watch-list"><div class="empty compact">No watchlists loaded.</div></div></section>
+            <section class="panel watch-form-panel">
+              <div class="panel-head"><div><p class="panel-kicker">NEW WATCHLIST</p><h2>Add monitoring target</h2></div></div>
+              <form id="watchlist-form">
+                <label class="field"><span>Target type</span><select id="watch-type"><option value="domain">Domain</option><option value="email">Email</option><option value="brand">Brand</option><option value="person">Person</option><option value="keyword">Keyword</option></select></label>
+                <label class="field"><span>Target</span><input id="watch-value" type="text" maxlength="200" placeholder="example.com" required></label>
+                <label class="field"><span>Interval</span><select id="watch-interval"><option value="24">Every 24 hours</option><option value="12">Every 12 hours</option><option value="6">Every 6 hours</option><option value="1">Every hour</option></select></label>
+                <label class="field"><span>Profile</span><select id="watch-profile"><option value="corporate">Corporate exposure</option><option value="identity">Identity exposure</option><option value="general">General intelligence</option><option value="ransomware">Ransomware signals</option></select></label>
+                <button class="button primary" id="create-watchlist" type="submit">Create watchlist</button>
+                <p class="muted-small">Continuous monitoring is available on paid plans. Minimum interval is enforced by your plan.</p>
+              </form>
+            </section>
+            <section class="panel watch-list-panel"><div class="panel-head"><div><p class="panel-kicker">ACTIVE MONITORING</p><h2>Targets</h2></div><button class="text-button" id="refresh-watchlists" type="button">Refresh</button></div><div id="watchlists-list" class="watch-list"><div class="empty compact">No watchlists loaded.</div></div></section>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="sources">
+          <div class="page-head"><div><p class="eyebrow">IN-HOUSE DISCOVERY</p><h1>Onion source catalog</h1><p class="page-subtitle">Seed the private ZebraByte crawler with approved public onion sources. It discovers additional v3 onion links automatically, applies strict resource limits, and prioritizes Romanian relevance.</p></div><button class="button secondary" id="discovery-run" type="button">Refresh seeds now</button></div>
+          <div class="stats-grid discovery-stats">
+            <article class="stat-card"><span>Enabled sources</span><strong id="discovery-source-count">—</strong><small>Seed + discovered</small></article>
+            <article class="stat-card"><span>Indexed pages</span><strong id="discovery-page-count">—</strong><small>Private FTS5 catalog</small></article>
+            <article class="stat-card"><span>Romania-relevant</span><strong id="discovery-ro-count">—</strong><small>Prioritized for RO market</small></article>
+            <article class="stat-card"><span>Daily crawl</span><strong id="discovery-budget-count">—</strong><small>Bounded page budget</small></article>
+          </div>
+          <div class="monitoring-grid">
+            <section class="panel watch-form-panel">
+              <div class="panel-head"><div><p class="panel-kicker">SEED SOURCES</p><h2>Add approved onion sources</h2></div></div>
+              <form id="discovery-form">
+                <label class="field" style="grid-column:1/-1"><span>v3 onion URLs — one per line</span><textarea id="discovery-urls" rows="8" maxlength="24000" placeholder="http://xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.onion/"></textarea><small>Public text pages only. Authentication, credential submission, binary downloads and non-v3 onion services are rejected by the crawler.</small></label>
+                <label class="field"><span>Category</span><select id="discovery-category"><option value="research">Research</option><option value="directory">Directory</option><option value="disclosure">Public disclosure</option><option value="other">Other approved source</option></select></label>
+                <label class="field"><span>Priority</span><select id="discovery-priority"><option value="80">High</option><option value="50" selected>Normal</option><option value="25">Low</option></select></label>
+                <button class="button primary" id="discovery-add" type="submit">Add sources</button>
+                <p class="muted-small" id="discovery-message">No external discovery API is required. Optional fallback remains disabled unless explicitly configured.</p>
+              </form>
+            </section>
+            <section class="panel watch-list-panel"><div class="panel-head"><div><p class="panel-kicker">CRAWLER CATALOG</p><h2>Known onion sources</h2></div><button class="text-button" id="discovery-refresh" type="button">Refresh</button></div><div id="discovery-list" class="watch-list"><div class="empty compact">Loading source catalog…</div></div></section>
           </div>
         </section>
 
         <section class="view" data-view-panel="intelligence">
-          <div class="page-head narrow-head"><div><p class="eyebrow">INTELLIGENCE</p><h1>Ask Intelligence</h1><p class="page-subtitle">Query completed investigations using only evidence indexed for the active organization.</p></div></div>
-          <section class="panel intelligence-panel"><div class="panel-head"><div><p class="panel-kicker">ORGANIZATION KNOWLEDGE</p><h2>Evidence-grounded query</h2></div><span class="evidence-label">AI Search + Workers AI</span></div><form id="intelligence-form"><label class="field wide"><span>Question</span><textarea id="intelligence-query" rows="4" maxlength="1000" placeholder="What exposure changes have been observed across our recent investigations?" required></textarea></label><div class="form-actions"><span class="quota-note">Tenant-isolated knowledge only</span><button class="button primary" id="ask-intelligence" type="submit">Ask Intelligence</button></div></form><div class="intelligence-answer" id="intelligence-answer"><div class="answer-empty"><p>No intelligence query has been submitted.</p></div></div></section>
+          <div class="page-head narrow-head"><div><p class="eyebrow">ORGANIZATION KNOWLEDGE</p><h1>Ask Intelligence</h1><p class="page-subtitle">Ask questions across completed investigations. Answers are generated only from indexed evidence belonging to your organization.</p></div></div>
+          <section class="panel intelligence-panel">
+            <form id="intelligence-form">
+              <label class="field wide"><span>Question</span><textarea id="intelligence-query" rows="4" maxlength="1000" placeholder="What exposures have been observed for our organization in the last investigations?" required></textarea></label>
+              <div class="form-actions"><span class="quota-note">Cloudflare AI Search + Workers AI</span><button class="button primary" id="ask-intelligence" type="submit">Ask Intelligence</button></div>
+            </form>
+            <div class="intelligence-answer" id="intelligence-answer"><div class="answer-empty"><span>✦</span><p>Ask a question to search your indexed investigation knowledge.</p></div></div>
+          </section>
         </section>
       </main>
     </div>
   </div>
 
-  <div class="auth-gate hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title"><div class="auth-card"><span class="brand-mark large-mark">Z</span><p class="eyebrow">SECURE WORKSPACE</p><h2 id="auth-title">Authentication required</h2><p id="auth-message">A valid ZebraByte session is required to access investigations.</p><div class="auth-actions"><button class="button primary" id="auth-retry" type="button">Check session</button><a class="button secondary" href="/">Back</a></div><small id="auth-detail"></small></div></div>
+  <div class="auth-gate hidden" id="auth-gate" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="auth-card"><span class="brand-mark large-mark">Z</span><p class="eyebrow">ZEBRABYTE SECURITY</p><h2 id="auth-title">Authentication required</h2><p id="auth-message">Sign in with your ZebraByte account to access investigations.</p><div class="auth-actions"><button class="button primary" id="auth-retry" type="button">Check session</button><a class="button secondary" href="/">Back to overview</a></div><small id="auth-detail"></small></div>
+  </div>
+
   <div class="toast-stack" id="toast-stack" aria-live="polite"></div>
   <div class="mobile-shade" id="mobile-shade"></div>
   <script src="/app/app.js" defer></script>
+  <script src="/app/sources.js" defer></script>
 </body>
 </html>
