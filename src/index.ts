@@ -31,6 +31,7 @@ import {
 } from "./discovery";
 import { InvestigationWorkflow } from "./workflow";
 import { browserMarkdown, validateClearWebUrl } from "./enrichment";
+import { assertInternalOperator } from "./internal-auth";
 import { askTenantKnowledge, deleteInvestigationKnowledge } from "./knowledge";
 import { consumeMonitoring, createWatchlist, deleteWatchlist, enqueueDueMonitoring, listWatchlists } from "./monitoring";
 import { consumeNotifications } from "./notifications";
@@ -175,10 +176,12 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "GET" && url.pathname === "/api/discovery/status") {
+    await assertInternalOperator(env, auth);
     return json(await getDiscoveryStatus(env));
   }
 
   if (request.method === "GET" && url.pathname === "/api/discovery/sources") {
+    await assertInternalOperator(env, auth);
     assertDiscoveryAdmin(auth);
     const limit = boundedInteger(url.searchParams.get("limit"), 50, 1, 100);
     const offset = boundedInteger(url.searchParams.get("offset"), 0, 0, 50_000);
@@ -187,6 +190,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/api/discovery/sources") {
+    await assertInternalOperator(env, auth);
     assertDiscoveryAdmin(auth);
     const body = await readJson<{ items?: unknown }>(request, 64_000);
     if (!Array.isArray(body.items)) throw new HttpError(400, "items must be an array");
@@ -197,6 +201,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
   }
 
   if (request.method === "POST" && url.pathname === "/api/discovery/crawl") {
+    await assertInternalOperator(env, auth);
     assertDiscoveryAdmin(auth);
     const queued = await enqueueDueDiscovery(env, true);
     await track(env, "discovery_refresh_requested", auth.orgId, plan, [queued]);
@@ -205,6 +210,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
 
   const discoverySourceMatch = url.pathname.match(/^\/api\/discovery\/sources\/([a-zA-Z0-9_-]{8,96})$/);
   if (request.method === "DELETE" && discoverySourceMatch?.[1]) {
+    await assertInternalOperator(env, auth);
     assertDiscoveryAdmin(auth);
     const id = discoverySourceMatch[1];
     if (!safeId(id)) throw new HttpError(400, "Invalid discovery source id");
