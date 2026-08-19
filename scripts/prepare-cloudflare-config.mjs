@@ -8,17 +8,16 @@ const wranglerBin = resolve(root, "node_modules", ".bin", "wrangler");
 
 const DB_NAME = "zebrabyte-darkweb-intelligence-prod";
 const R2_BUCKET = "zbtdarkweb-scan-evidence";
-const FLAGSHIP_APP = "zebrabyte-darkweb-intelligence";
 
 if (!existsSync(wranglerBin)) {
-  throw new Error("Wrangler binary is unavailable; cannot reconcile Cloudflare resources.");
+  throw new Error("Wrangler binary is unavailable; cannot resolve the production D1 binding.");
 }
 
-function wrangler(args, options = {}) {
+function wrangler(args) {
   return execFileSync(wranglerBin, args, {
     cwd: root,
     encoding: "utf8",
-    stdio: ["ignore", "pipe", options.inheritStderr ? "inherit" : "pipe"],
+    stdio: ["ignore", "pipe", "pipe"],
     env: process.env,
   }).trim();
 }
@@ -31,8 +30,12 @@ function parseJsonOutput(output) {
   } catch {
     const arrayStart = text.indexOf("[");
     const objectStart = text.indexOf("{");
-    const start = [arrayStart, objectStart].filter((value) => value >= 0).sort((a, b) => a - b)[0];
-    if (start === undefined) throw new Error(`Expected JSON from Wrangler but received: ${text.slice(0, 240)}`);
+    const start = [arrayStart, objectStart]
+      .filter((value) => value >= 0)
+      .sort((a, b) => a - b)[0];
+    if (start === undefined) {
+      throw new Error(`Expected JSON from Wrangler but received: ${text.slice(0, 240)}`);
+    }
     return JSON.parse(text.slice(start));
   }
 }
@@ -40,27 +43,19 @@ function parseJsonOutput(output) {
 function asArray(value) {
   if (Array.isArray(value)) return value;
   if (!value || typeof value !== "object") return [];
-  for (const key of ["result", "apps", "items", "databases"]) {
+  for (const key of ["result", "items", "databases"]) {
     if (Array.isArray(value[key])) return value[key];
   }
   return [];
 }
 
-function resourceId(resource) {
-  if (!resource || typeof resource !== "object") return undefined;
-  for (const key of ["uuid", "id", "database_id", "app_id"]) {
-    const value = resource[key];
+function databaseId(database) {
+  if (!database || typeof database !== "object") return undefined;
+  for (const key of ["uuid", "id", "database_id"]) {
+    const value = database[key];
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return undefined;
-}
-
-function loadConfig() {
-  return JSON.parse(readFileSync(configPath, "utf8"));
-}
-
-function saveConfig(config) {
-  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
 function ensureD1() {
@@ -69,55 +64,41 @@ function ensureD1() {
 
   if (!database) {
     console.log(`[cloudflare-sync] Creating D1 ${DB_NAME}`);
-    wrangler(["d1", "create", DB_NAME, "--location", "weur", "--binding", "DB", "--update-config"], { inheritStderr: true });
+    wrangler(["d1", "create", DB_NAME, "--location", "weur"]);
     databases = asArray(parseJsonOutput(wrangler(["d1", "list", "--json"])));
     database = databases.find((item) => item?.name === DB_NAME);
   }
 
-  const id = resourceId(database);
+  const id = databaseId(database);
   if (!id) throw new Error(`Unable to resolve database_id for D1 ${DB_NAME}.`);
   return id;
 }
 
-function ensureR2() {
-  try {
-    wrangler(["r2", "bucket", "info", R2_BUCKET, "--json"]);
-  } catch {
-    console.log(`[cloudflare-sync] Creating R2 ${R2_BUCKET}`);
-    wrangler(["r2", "bucket", "create", R2_BUCKET], { inheritStderr: true });
-  }
-}
+const config = JSON.parse(readFileSync(configPath, "utf8"));
+const id = ensureD1();
 
-function ensureFlagship() {
-  let apps = asArray(parseJsonOutput(wrangler(["flagship", "apps", "list", "--json"])));
-  let app = apps.find((item) => item?.name === FLAGSHIP_APP);
-
-  if (!app) {
-    console.log(`[cloudflare-sync] Creating Flagship app ${FLAGSHIP_APP}`);
-    app = parseJsonOutput(wrangler(["flagship", "apps", "create", FLAGSHIP_APP, "--json"]));
-  }
-
-  const id = resourceId(app);
-  if (!id) throw new Error(`Unable to resolve app_id for Flagship app ${FLAGSHIP_APP}.`);
-  return id;
-}
-
-const databaseId = ensureD1();
-ensureR2();
-const flagshipAppId = ensureFlagship();
-
-const config = loadConfig();
+// Production uses Cloudflare Workers AI directly. No external AI provider is required.
 config.ai = { binding: "AI" };
+
+// Pin the existing production D1 by its real account UUID so Git-connected
+// deploys never attempt to auto-provision the same database again.
 config.d1_databases = [
   {
     binding: "DB",
     database_name: DB_NAME,
-    database_id: databaseId,
+    database_id: id,
     migrations_dir: "migrations",
   },
 ];
-config.r2_buckets = [{ binding: "EVIDENCE", bucket_name: R2_BUCKET }];
-config.flagship = [{ binding: "FLAGS", app_id: flagshipAppId }];
 
-saveConfig(config);
-console.log("[cloudflare-sync] Cloudflare bindings reconciled: Workers AI, D1, R2 and Flagship are pinned for this deployment.");
+// The bucket already exists in the account. An explicit bucket_name binds it
+// without any R2 list/create API call during dependency installation.
+config.r2_buckets = [{ binding: "EVIDENCE", bucket_name: R2_BUCKET }];
+
+// Flagship is optional in application code. The Cloudflare Build API token
+// currently lacks Flagship Read/Write, so do not make installation/deployment
+// depend on that separate account permission.
+delete config.flagship;
+
+writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+console.log(`[cloudflare-sync] Pinned D1 ${DB_NAME} (${id}) and R2 ${R2_BUCKET}; Workers AI is native Cloudflare.`);
