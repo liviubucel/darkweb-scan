@@ -5,6 +5,7 @@ import json
 import os
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import quote_plus, urljoin, urlparse
 
@@ -25,21 +26,41 @@ ONION_V3 = re.compile(r"^[a-z2-7]{56}\.onion$", re.IGNORECASE)
 
 app = FastAPI(title="ZebraByte Tor Collector", docs_url=None, redoc_url=None, openapi_url=None)
 
+
 class SearchRequest(BaseModel):
     query: str = Field(min_length=2, max_length=300)
     limit: int = Field(default=40, ge=1, le=MAX_RESULTS)
 
+
 class ScrapeRequest(BaseModel):
     urls: list[str] = Field(min_length=1, max_length=MAX_SCRAPE_URLS)
 
+
 def _session() -> requests.Session:
     session = requests.Session()
-    retry = Retry(total=2, connect=2, read=1, backoff_factor=0.4, status_forcelist=(429, 500, 502, 503, 504), allowed_methods=frozenset({"GET"}), raise_on_status=False)
+    # Never inherit HTTP(S)_PROXY/NO_PROXY from the container runtime. All collector
+    # application traffic must go through Tor's SOCKS resolver.
+    session.trust_env = False
+    retry = Retry(
+        total=2,
+        connect=2,
+        read=1,
+        backoff_factor=0.4,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset({"GET"}),
+        raise_on_status=False,
+    )
     session.mount("http://", HTTPAdapter(max_retries=retry, pool_connections=8, pool_maxsize=8))
     session.mount("https://", HTTPAdapter(max_retries=retry, pool_connections=8, pool_maxsize=8))
-    session.proxies.update({"http": "socks5h://127.0.0.1:9050", "https": "socks5h://127.0.0.1:9050"})
-    session.headers.update({"User-Agent": "ZebraByte-Defensive-Collector/1.0", "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.1"})
+    session.proxies = {"http": "socks5h://127.0.0.1:9050", "https": "socks5h://127.0.0.1:9050"}
+    session.headers.update(
+        {
+            "User-Agent": "ZebraByte-Defensive-Collector/1.0",
+            "Accept": "text/html,application/xhtml+xml,text/plain;q=0.9,*/*;q=0.1",
+        }
+    )
     return session
+
 
 def _validated_onion_url(raw: str) -> str:
     if not isinstance(raw, str) or len(raw) > 2048:
@@ -52,34 +73,43 @@ def _validated_onion_url(raw: str) -> str:
     host = parsed.hostname.lower()
     if not ONION_V3.fullmatch(host):
         raise ValueError("only v3 onion hosts are allowed")
-    if parsed.port not in ALLOWED_PORTS:
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError("invalid port") from exc
+    if port not in ALLOWED_PORTS:
         raise ValueError("unsupported port")
     return parsed.geturl()
 
+
 def _safe_get(url: str) -> tuple[bytes, str, str]:
     current = _validated_onion_url(url)
-    session = _session()
-    for _ in range(3):
-        response = session.get(current, timeout=REQUEST_TIMEOUT, stream=True, allow_redirects=False)
-        if response.status_code in {301, 302, 303, 307, 308}:
-            location = response.headers.get("location")
-            if not location:
-                raise ValueError("redirect without location")
-            current = _validated_onion_url(urljoin(current, location))
-            continue
-        response.raise_for_status()
-        content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-        if content_type not in {"text/html", "application/xhtml+xml", "text/plain", ""}:
-            raise ValueError("unsupported content type")
-        content = bytearray()
-        for chunk in response.iter_content(16_384):
-            if not chunk:
-                continue
-            content.extend(chunk)
-            if len(content) > MAX_PAGE_BYTES:
-                raise ValueError("response too large")
-        return bytes(content), content_type or "text/html", current
+    with _session() as session:
+        for _ in range(3):
+            response = session.get(current, timeout=REQUEST_TIMEOUT, stream=True, allow_redirects=False)
+            try:
+                if response.status_code in {301, 302, 303, 307, 308}:
+                    location = response.headers.get("location")
+                    if not location:
+                        raise ValueError("redirect without location")
+                    current = _validated_onion_url(urljoin(current, location))
+                    continue
+                response.raise_for_status()
+                content_type = response.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+                if content_type not in {"text/html", "application/xhtml+xml", "text/plain", ""}:
+                    raise ValueError("unsupported content type")
+                content = bytearray()
+                for chunk in response.iter_content(16_384):
+                    if not chunk:
+                        continue
+                    content.extend(chunk)
+                    if len(content) > MAX_PAGE_BYTES:
+                        raise ValueError("response too large")
+                return bytes(content), content_type or "text/html", current
+            finally:
+                response.close()
     raise ValueError("too many redirects")
+
 
 def _html_to_text(content: bytes, content_type: str) -> tuple[str, str]:
     decoded = content.decode("utf-8", errors="replace")
@@ -105,6 +135,7 @@ def _html_to_text(content: bytes, content_type: str) -> tuple[str, str]:
             break
     return title, "\n".join(lines)[:MAX_TEXT_CHARS]
 
+
 def _engines() -> list[dict[str, str]]:
     raw = os.getenv("ONION_SEARCH_ENGINES_JSON", "[]")
     try:
@@ -127,6 +158,7 @@ def _engines() -> list[dict[str, str]]:
             continue
         output.append({"name": name or "onion-index", "url_template": template})
     return output
+
 
 def _parse_search_html(html: bytes, base_url: str, engine: str) -> list[dict[str, str]]:
     soup = BeautifulSoup(html.decode("utf-8", errors="replace"), "html.parser")
@@ -153,6 +185,7 @@ def _parse_search_html(html: bytes, base_url: str, engine: str) -> list[dict[str
             break
     return results
 
+
 def _search_engine(engine: dict[str, str], query: str) -> list[dict[str, str]]:
     url = engine["url_template"].replace("{query}", quote_plus(query))
     content, content_type, final_url = _safe_get(url)
@@ -160,9 +193,11 @@ def _search_engine(engine: dict[str, str], query: str) -> list[dict[str, str]]:
         return []
     return _parse_search_html(content, final_url, engine["name"])
 
+
 @app.get("/health")
 def health() -> dict[str, Any]:
     return {"ok": True, "collector": "tor", "mode": "defensive"}
+
 
 @app.post("/search")
 def search(request: SearchRequest) -> dict[str, Any]:
@@ -190,12 +225,20 @@ def search(request: SearchRequest) -> dict[str, Any]:
                 break
     return {"results": combined[: request.limit]}
 
+
 def _scrape_one(url: str) -> dict[str, str]:
     validated = _validated_onion_url(url)
     content, content_type, final_url = _safe_get(validated)
     title, text = _html_to_text(content, content_type)
-    from datetime import datetime, timezone
-    return {"url": final_url, "title": title, "text": text, "contentType": content_type, "fetchedAt": datetime.now(timezone.utc).isoformat(), "sha256": hashlib.sha256(content).hexdigest()}
+    return {
+        "url": final_url,
+        "title": title,
+        "text": text,
+        "contentType": content_type,
+        "fetchedAt": datetime.now(timezone.utc).isoformat(),
+        "sha256": hashlib.sha256(content).hexdigest(),
+    }
+
 
 @app.post("/scrape")
 def scrape(request: ScrapeRequest) -> dict[str, Any]:
