@@ -31,6 +31,7 @@ CREATE TABLE investigations (
   summary TEXT,
   source_count INTEGER NOT NULL DEFAULT 0,
   error_message TEXT,
+  ai_search_item_id TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   completed_at TEXT
