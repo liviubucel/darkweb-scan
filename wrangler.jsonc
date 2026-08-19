@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "zebrabyte-darkweb-intelligence",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
+  "ai": { "binding": "AI", "remote": true },
+  "browser": { "binding": "BROWSER", "remote": true },
+  "d1_databases": [{ "binding": "DB", "database_name": "zebrabyte-darkweb", "database_id": "REPLACE_D1_DATABASE_ID" }],
+  "kv_namespaces": [{ "binding": "CACHE", "id": "REPLACE_KV_NAMESPACE_ID" }],
+  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "zebrabyte-darkweb-evidence" }],
+  "vectorize": [{ "binding": "INTELLIGENCE_INDEX", "index_name": "zebrabyte-darkweb-intelligence" }],
+  "ai_search_namespaces": [{ "binding": "AI_SEARCH", "namespace": "default", "remote": true }],
+  "analytics_engine_datasets": [{ "binding": "ANALYTICS", "dataset": "zebrabyte_darkweb_usage" }],
+  "flagship": [{ "binding": "FLAGS", "app_id": "REPLACE_FLAGSHIP_APP_ID" }],
+  "send_email": [{ "name": "EMAIL", "remote": true }],
+  "secrets_store_secrets": [
+    { "binding": "STRIPE_SECRET_KEY", "store_id": "REPLACE_SECRETS_STORE_ID", "secret_name": "STRIPE_SECRET_KEY" },
+    { "binding": "STRIPE_WEBHOOK_SECRET", "store_id": "REPLACE_SECRETS_STORE_ID", "secret_name": "STRIPE_WEBHOOK_SECRET" },
+    { "binding": "ONION_SEARCH_ENGINES_JSON", "store_id": "REPLACE_SECRETS_STORE_ID", "secret_name": "ONION_SEARCH_ENGINES_JSON" }
+  ],
+  "ratelimits": [
+    { "name": "FREE_RATE_LIMITER", "namespace_id": "41001", "simple": { "limit": 10, "period": 60 } },
+    { "name": "PAID_RATE_LIMITER", "namespace_id": "41002", "simple": { "limit": 120, "period": 60 } }
+  ],
+  "queues": {
+    "producers": [{ "binding": "NOTIFICATIONS", "queue": "zebrabyte-darkweb-notifications" }],
+    "consumers": [{ "queue": "zebrabyte-darkweb-notifications", "max_batch_size": 10, "max_batch_timeout": 5, "max_retries": 5, "dead_letter_queue": "zebrabyte-darkweb-notifications-dlq" }]
+  },
+  "workflows": [{ "name": "zebrabyte-darkweb-investigation", "binding": "INVESTIGATION_WORKFLOW", "class_name": "InvestigationWorkflow", "limits": { "steps": 10000 } }],
+  "containers": [{ "class_name": "TorCollector", "image": "./Dockerfile", "max_instances": 1, "instance_type": "lite" }],
+  "durable_objects": { "bindings": [{ "name": "TOR_COLLECTOR", "class_name": "TorCollector" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TorCollector"] }],
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
+  "vars": {
+    "APP_NAME": "ZebraByte Dark Web Intelligence",
+    "CLERK_ISSUER": "REPLACE_CLERK_ISSUER",
+    "CLERK_JWKS_URL": "REPLACE_CLERK_JWKS_URL",
+    "CLERK_AUDIENCE": "",
+    "EVIDENCE_RETENTION_DAYS": "90",
+    "MAX_SELECTED_SOURCES": "8",
+    "MAX_QUERY_CHARS": "300",
+    "ALLOWED_BROWSER_HOSTS": "zebrabyte.ro,zebrabyte.co.uk",
+    "EMAIL_FROM": "security@zebrabyte.ro"
+  }
+}
